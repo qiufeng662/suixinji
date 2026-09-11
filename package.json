@@ -19,13 +19,13 @@
     "productivity",
     "windows"
   ],
-  "homepage": "https://github.com/your-name/suixinji#readme",
+  "homepage": "https://github.com/qiufeng662/suixinji#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-name/suixinji.git"
+    "url": "https://github.com/qiufeng662/suixinji.git"
   },
   "bugs": {
-    "url": "https://github.com/your-name/suixinji/issues"
+    "url": "https://github.com/qiufeng662/suixinji/issues"
   },
   "scripts": {
     "dev": "vite",
