@@ -1,0 +1,22 @@
+# Build artifacts
+node_modules
+dist
+dist-electron
+release
+*.log
+*.tsbuildinfo
+builder-debug.yml
+.vite
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea
+.vscode/*
+!.vscode/extensions.json
+
+# Local secrets (if you add code signing later)
+*.pfx
+*.p12
+.env
+.env.*

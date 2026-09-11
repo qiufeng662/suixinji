@@ -1,0 +1,93 @@
+{
+  "name": "suixinji",
+  "version": "1.0.0",
+  "description": "随心记 — 桌面悬浮任务与随想卡片，3D 纸卡质感，可深度 DIY",
+  "main": "dist-electron/main.cjs",
+  "author": "suixinji",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "electron",
+    "desktop-widget",
+    "sticky-notes",
+    "todo",
+    "journal",
+    "productivity",
+    "windows"
+  ],
+  "homepage": "https://github.com/your-name/suixinji#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-name/suixinji.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-name/suixinji/issues"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build && vite build --config vite.electron.config.ts",
+    "preview": "vite preview",
+    "electron:dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && electron .\"",
+    "typecheck": "tsc -b --pretty false",
+    "dist": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-win.ps1",
+    "shot": "node scripts/shot.mjs"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^4.5.0",
+    "concurrently": "^9.1.2",
+    "electron": "^35.1.2",
+    "electron-builder": "^25.1.8",
+    "playwright": "^1.63.0",
+    "typescript": "^5.8.2",
+    "vite": "^6.2.3",
+    "wait-on": "^8.0.3"
+  },
+  "build": {
+    "appId": "com.suixinji.desktop",
+    "productName": "随心记",
+    "copyright": "Copyright © 2026 suixinji",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/icon.png",
+        "to": "icon.png"
+      }
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "artifactName": "suixinji-${version}-win.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "随心记",
+      "artifactName": "suixinji-${version}-setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "suixinji-${version}-portable.${ext}"
+    }
+  }
+}
