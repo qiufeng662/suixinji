@@ -54,7 +54,8 @@
   },
   "build": {
     "appId": "com.suixinji.desktop",
-    "productName": "随心记",
+    "productName": "Suixinji",
+    "executableName": "Suixinji",
     "copyright": "Copyright © 2026 suixinji",
     "directories": {
       "output": "release",
@@ -76,8 +77,7 @@
       "target": [
         "nsis",
         "portable"
-      ],
-      "artifactName": "suixinji-${version}-win.${ext}"
+      ]
     },
     "nsis": {
       "oneClick": false,
