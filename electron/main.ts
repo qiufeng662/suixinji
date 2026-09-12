@@ -62,15 +62,37 @@ function ensureStore(): Store {
   }
 }
 
+/** 把窗口矩形钳到可见工作区，避免拖出屏幕外再也找不到 */
+function clampToWorkArea(b: { x: number; y: number; width: number; height: number }) {
+  const display = screen.getDisplayMatching({
+    x: safeInt(b.x, 0),
+    y: safeInt(b.y, 0),
+    width: Math.max(80, safeInt(b.width, 160)),
+    height: Math.max(80, safeInt(b.height, 160)),
+  })
+  const wa = display.workArea
+  const width = Math.max(80, Math.min(safeInt(b.width, 160), wa.width))
+  const height = Math.max(80, Math.min(safeInt(b.height, 160), wa.height))
+  // 至少露出 48px，避免完全在屏外
+  const minX = wa.x - width + 48
+  const maxX = wa.x + wa.width - 48
+  const minY = wa.y - height + 48
+  const maxY = wa.y + wa.height - 48
+  const x = Math.min(Math.max(safeInt(b.x, wa.x), minX), maxX)
+  const y = Math.min(Math.max(safeInt(b.y, wa.y), minY), maxY)
+  return { x, y, width, height }
+}
+
 function loadWindowState() {
   try {
     if (fs.existsSync(WIN_FILE)) {
-      return JSON.parse(fs.readFileSync(WIN_FILE, 'utf-8')) as {
+      const raw = JSON.parse(fs.readFileSync(WIN_FILE, 'utf-8')) as {
         x: number
         y: number
         width: number
         height: number
       }
+      return clampToWorkArea(raw)
     }
   } catch {
     /* ignore */
@@ -87,12 +109,13 @@ function loadWindowState() {
 function loadPetWindowState() {
   try {
     if (fs.existsSync(PET_FILE)) {
-      return JSON.parse(fs.readFileSync(PET_FILE, 'utf-8')) as {
+      const raw = JSON.parse(fs.readFileSync(PET_FILE, 'utf-8')) as {
         x: number
         y: number
         width: number
         height: number
       }
+      return clampToWorkArea(raw)
     }
   } catch {
     /* ignore */
@@ -402,11 +425,10 @@ function setWinOpacity(w: BrowserWindow | null, value: number) {
 
 function setWinPos(w: BrowserWindow | null, x: number, y: number) {
   if (!w || w.isDestroyed()) return
-  const nx = safeInt(x, NaN)
-  const ny = safeInt(y, NaN)
-  if (!Number.isFinite(nx) || !Number.isFinite(ny)) return
+  const b = w.getBounds()
+  const c = clampToWorkArea({ x, y, width: b.width, height: b.height })
   try {
-    w.setPosition(nx, ny)
+    w.setPosition(c.x, c.y)
   } catch {
     /* ignore */
   }
@@ -414,13 +436,9 @@ function setWinPos(w: BrowserWindow | null, x: number, y: number) {
 
 function setWinBounds(w: BrowserWindow | null, x: number, y: number, width: number, height: number) {
   if (!w || w.isDestroyed()) return
-  const nx = safeInt(x)
-  const ny = safeInt(y)
-  const nw = safeInt(width)
-  const nh = safeInt(height)
-  if (nw < 40 || nh < 40) return
+  const c = clampToWorkArea({ x, y, width, height })
   try {
-    w.setBounds({ x: nx, y: ny, width: nw, height: nh })
+    w.setBounds(c)
   } catch {
     /* ignore */
   }
