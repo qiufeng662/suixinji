@@ -18,6 +18,11 @@ let win: BrowserWindow | null = null
 let petWin: BrowserWindow | null = null
 let tray: Tray | null = null
 
+// 避免主进程未捕获异常弹出系统错误框（坐标/窗口 API 偶发 conversion failure）
+process.on('uncaughtException', (err) => {
+  console.error('[suixinji]', err)
+})
+
 const DATA_DIR = path.join(app.getPath('userData'), 'suixinji')
 const DATA_FILE = path.join(DATA_DIR, 'data.json')
 const WIN_FILE = path.join(DATA_DIR, 'window.json')
@@ -181,14 +186,8 @@ function stripChromeArtifacts(w: BrowserWindow | null) {
     /* ignore */
   }
   if (process.platform === 'win32') {
-    try {
-      w.setOpacity(0.98)
-      setTimeout(() => {
-        if (!w.isDestroyed()) w.setOpacity(1)
-      }, 40)
-    } catch {
-      /* ignore */
-    }
+    setWinOpacity(w, 0.98)
+    setTimeout(() => setWinOpacity(w, 1), 40)
     stripCaption(w)
   }
 }
@@ -381,6 +380,52 @@ function setPetVisible(flag: boolean) {
   }
 }
 
+function safeInt(n: unknown, fallback = 0): number {
+  const v = Math.round(Number(n))
+  return Number.isFinite(v) ? v : fallback
+}
+
+function safeOpacity(n: unknown, fallback = 1): number {
+  const v = Number(n)
+  if (!Number.isFinite(v)) return fallback
+  return Math.min(1, Math.max(0.35, v))
+}
+
+function setWinOpacity(w: BrowserWindow | null, value: number) {
+  if (!w || w.isDestroyed()) return
+  try {
+    w.setOpacity(safeOpacity(value))
+  } catch {
+    /* ignore */
+  }
+}
+
+function setWinPos(w: BrowserWindow | null, x: number, y: number) {
+  if (!w || w.isDestroyed()) return
+  const nx = safeInt(x, NaN)
+  const ny = safeInt(y, NaN)
+  if (!Number.isFinite(nx) || !Number.isFinite(ny)) return
+  try {
+    w.setPosition(nx, ny)
+  } catch {
+    /* ignore */
+  }
+}
+
+function setWinBounds(w: BrowserWindow | null, x: number, y: number, width: number, height: number) {
+  if (!w || w.isDestroyed()) return
+  const nx = safeInt(x)
+  const ny = safeInt(y)
+  const nw = safeInt(width)
+  const nh = safeInt(height)
+  if (nw < 40 || nh < 40) return
+  try {
+    w.setBounds({ x: nx, y: ny, width: nw, height: nh })
+  } catch {
+    /* ignore */
+  }
+}
+
 function snapPetToEdge() {
   if (!petWin || petWin.isDestroyed()) return
   const b = petWin.getBounds()
@@ -392,7 +437,7 @@ function snapPetToEdge() {
   if (Math.abs(x + b.width - (wa.x + wa.width)) < threshold) x = wa.x + wa.width - b.width
   if (Math.abs(y - wa.y) < threshold) y = wa.y
   if (Math.abs(y + b.height - (wa.y + wa.height)) < threshold) y = wa.y + wa.height - b.height
-  petWin.setPosition(Math.round(x), Math.round(y))
+  setWinPos(petWin, x, y)
   saveWindowState()
 }
 
@@ -534,14 +579,14 @@ function registerIpc() {
       )
       if (payload?.settings) {
         broadcastPetSettings(payload.settings as Record<string, unknown>)
-        const petSize = Number((payload.settings as Record<string, unknown>).petSize)
+        const petSize = safeInt((payload.settings as Record<string, unknown>).petSize, 180)
         const petShape =
           (payload.settings as Record<string, unknown>).petShape === 'circle' ? 'circle' : 'cutout'
         if (petWin && !petWin.isDestroyed() && petSize >= 100) {
           const b = petWin.getBounds()
-          const w = petShape === 'circle' ? Math.round(petSize) : Math.round(petSize * 0.85)
-          const h = petShape === 'circle' ? Math.round(petSize) + 20 : Math.round(petSize * 1.35)
-          petWin.setBounds({ x: b.x, y: b.y, width: w, height: h })
+          const w = petShape === 'circle' ? petSize : Math.round(petSize * 0.85)
+          const h = petShape === 'circle' ? petSize + 20 : Math.round(petSize * 1.35)
+          setWinBounds(petWin, b.x, b.y, w, h)
         }
       }
       const petOn = (payload?.settings as Record<string, unknown> | undefined)?.petEnabled !== false
@@ -553,13 +598,13 @@ function registerIpc() {
   })
 
   ipcMain.handle('win:set-always-on-top', (_e, flag: boolean) => {
-    win?.setAlwaysOnTop(Boolean(flag), 'screen-saver')
+    forceTop(win, Boolean(flag))
     return Boolean(flag)
   })
 
   ipcMain.handle('win:set-opacity', (_e, value: number) => {
-    const v = Math.min(1, Math.max(0.35, Number(value) || 1))
-    win?.setOpacity(v)
+    const v = safeOpacity(value, 1)
+    setWinOpacity(win, v)
     return v
   })
 
@@ -625,9 +670,10 @@ function registerIpc() {
   })
   ipcMain.on('pet:drag-move', (_e, screenX: number, screenY: number) => {
     if (!petWin || petWin.isDestroyed() || !petDrag) return
-    const x = Math.round(Number(screenX) - petDrag.dx)
-    const y = Math.round(Number(screenY) - petDrag.dy)
-    petWin.setPosition(x, y)
+    const sx = Number(screenX)
+    const sy = Number(screenY)
+    if (!Number.isFinite(sx) || !Number.isFinite(sy)) return
+    setWinPos(petWin, sx - petDrag.dx, sy - petDrag.dy)
   })
   ipcMain.on('pet:drag-end', () => {
     petDrag = null
