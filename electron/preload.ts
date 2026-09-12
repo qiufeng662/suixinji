@@ -74,6 +74,7 @@ const api = {
   petDragEnd: (): void => {
     ipcRenderer.send('pet:drag-end')
   },
+  focusMainCard: (): Promise<void> => ipcRenderer.invoke('pet:open-main'),
 }
 
 contextBridge.exposeInMainWorld('suixinji', api)

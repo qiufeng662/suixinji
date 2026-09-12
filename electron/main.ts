@@ -461,6 +461,15 @@ function registerIpc() {
     saveWindowState()
   })
 
+  ipcMain.handle('pet:open-main', () => {
+    if (!win || win.isDestroyed()) {
+      createWindow()
+      return
+    }
+    if (!win.isVisible()) win.show()
+    win.focus()
+  })
+
   ipcMain.handle('pet:open-external', (_e, url: String) => shell.openExternal(String(url)))
 }
 
