@@ -305,7 +305,7 @@ body,
 .pet-menu {
   position: fixed;
   z-index: 50;
-  min-width: 152px;
+  min-width: 168px;
   padding: 5px;
   border-radius: 14px;
   background: rgba(250, 246, 238, 0.97);

@@ -125,6 +125,33 @@ function resolveAppIcon(): string | undefined {
   return candidates.find((p) => fs.existsSync(p))
 }
 
+function forceTop(w: BrowserWindow | null, flag = true) {
+  if (!w || w.isDestroyed()) return
+  try {
+    w.setAlwaysOnTop(flag, 'screen-saver')
+    if (flag) w.setVisibleOnAllWorkspaces?.(true, { visibleOnFullScreen: true })
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Windows 上置顶有时会被全屏/UAC 抢走，定期加固 */
+let topTimer: NodeJS.Timeout | null = null
+function startTopKeeper() {
+  if (topTimer) return
+  topTimer = setInterval(() => {
+    const petTop = ensureStore().settings.petAlwaysOnTop !== false
+    const cardTop = ensureStore().settings.alwaysOnTop !== false
+    if (petWin && !petWin.isDestroyed() && petWin.isVisible() && petTop) forceTop(petWin)
+    if (win && !win.isDestroyed() && win.isVisible() && cardTop) forceTop(win)
+  }, 1500)
+}
+
+function stopTopKeeper() {
+  if (topTimer) clearInterval(topTimer)
+  topTimer = null
+}
+
 function createWindow() {
   const bounds = loadWindowState()
 
@@ -140,7 +167,8 @@ function createWindow() {
     show: false,
     backgroundColor: '#00000000',
     hasShadow: false,
-    title: '随心记',
+    title: ' ',
+    autoHideMenuBar: true,
     icon: resolveAppIcon(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -150,8 +178,12 @@ function createWindow() {
     },
   })
 
-  win.setAlwaysOnTop(true, 'screen-saver')
-  win.setVisibleOnAllWorkspaces?.(true, { visibleOnFullScreen: true })
+  forceTop(win)
+  try {
+    win.setTitle(' ')
+  } catch {
+    /* ignore */
+  }
 
   if (isDev) {
     void win.loadURL('http://localhost:5173/')
@@ -161,10 +193,12 @@ function createWindow() {
 
   win.once('ready-to-show', () => {
     win?.show()
+    forceTop(win)
   })
 
   win.on('moved', saveWindowState)
   win.on('resized', saveWindowState)
+  win.on('blur', () => forceTop(win))
 
   win.on('closed', () => {
     win = null
@@ -215,8 +249,7 @@ function createPetWindow() {
     },
   })
 
-  petWin.setAlwaysOnTop(true, 'screen-saver')
-  petWin.setVisibleOnAllWorkspaces?.(true, { visibleOnFullScreen: true })
+  forceTop(petWin)
   try {
     petWin.setTitle(' ')
   } catch {
@@ -230,10 +263,14 @@ function createPetWindow() {
   }
 
   petWin.once('ready-to-show', () => {
-    if (petEnabledFromStore()) petWin?.show()
+    if (petEnabledFromStore()) {
+      petWin?.show()
+      forceTop(petWin)
+    }
   })
 
   petWin.on('moved', saveWindowState)
+  petWin.on('blur', () => forceTop(petWin))
   petWin.on('closed', () => {
     petWin = null
   })
@@ -244,9 +281,39 @@ function createPetWindow() {
 function setPetVisible(flag: boolean) {
   if (flag) {
     if (!petWin || petWin.isDestroyed()) createPetWindow()
-    else petWin.show()
+    else {
+      petWin.show()
+      forceTop(petWin)
+    }
   } else {
     petWin?.hide()
+  }
+}
+
+function snapPetToEdge() {
+  if (!petWin || petWin.isDestroyed()) return
+  const b = petWin.getBounds()
+  const display = screen.getDisplayNearestPoint({ x: b.x + b.width / 2, y: b.y + b.height / 2 })
+  const wa = display.workArea
+  const threshold = 36
+  let { x, y } = b
+  if (Math.abs(x - wa.x) < threshold) x = wa.x
+  if (Math.abs(x + b.width - (wa.x + wa.width)) < threshold) x = wa.x + wa.width - b.width
+  if (Math.abs(y - wa.y) < threshold) y = wa.y
+  if (Math.abs(y + b.height - (wa.y + wa.height)) < threshold) y = wa.y + wa.height - b.height
+  petWin.setPosition(Math.round(x), Math.round(y))
+  saveWindowState()
+}
+
+function applyPetChrome(settings: Record<string, unknown>) {
+  if (!petWin || petWin.isDestroyed()) return
+  const top = settings.petAlwaysOnTop !== false
+  forceTop(petWin, top)
+  const through = settings.petClickThrough === true
+  try {
+    petWin.setIgnoreMouseEvents(through, { forward: true })
+  } catch {
+    /* ignore */
   }
 }
 
@@ -254,11 +321,15 @@ function broadcastPetSettings(settings: Record<string, unknown>) {
   const payload = {
     petEnabled: settings.petEnabled !== false,
     petImage: typeof settings.petImage === 'string' ? settings.petImage : null,
-    petSize: Number(settings.petSize) || 160,
+    petSize: Number(settings.petSize) || 180,
     petAnimation: settings.petAnimation !== false,
     petShowBadge: settings.petShowBadge !== false,
     petShape: settings.petShape === 'circle' ? 'circle' : 'cutout',
+    petAlwaysOnTop: settings.petAlwaysOnTop !== false,
+    petLockPosition: settings.petLockPosition === true,
+    petClickThrough: settings.petClickThrough === true,
   }
+  applyPetChrome(settings)
   petWin?.webContents.send('pet:settings', payload)
   if (win && !win.isDestroyed()) {
     win.webContents.send('pet:settings', payload)
@@ -456,6 +527,7 @@ function registerIpc() {
   let petDrag: { dx: number; dy: number } | null = null
   ipcMain.on('pet:drag-start', () => {
     if (!petWin || petWin.isDestroyed()) return
+    if (ensureStore().settings.petLockPosition === true) return
     const c = screen.getCursorScreenPoint()
     const b = petWin.getBounds()
     petDrag = { dx: c.x - b.x, dy: c.y - b.y }
@@ -468,7 +540,10 @@ function registerIpc() {
   })
   ipcMain.on('pet:drag-end', () => {
     petDrag = null
+    const s = ensureStore().settings
+    if (s.petLockPosition !== true) snapPetToEdge()
     saveWindowState()
+    forceTop(petWin)
   })
 
   ipcMain.handle('pet:open-main', () => {
@@ -478,6 +553,11 @@ function registerIpc() {
     }
     if (!win.isVisible()) win.show()
     win.focus()
+    forceTop(win)
+  })
+
+  ipcMain.handle('pet:celebrate', () => {
+    petWin?.webContents.send('pet:celebrate')
   })
 
   ipcMain.handle('pet:open-external', (_e, url: String) => shell.openExternal(String(url)))
@@ -513,7 +593,11 @@ app.whenReady().then(() => {
   registerIpc()
   createWindow()
   createTray()
-  if (petEnabledFromStore()) createPetWindow()
+  if (petEnabledFromStore()) {
+    createPetWindow()
+    applyPetChrome(ensureStore().settings as Record<string, unknown>)
+  }
+  startTopKeeper()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -527,4 +611,7 @@ app.on('window-all-closed', () => {
   // keep tray app alive on Windows unless explicitly quit
 })
 
-app.on('before-quit', saveWindowState)
+app.on('before-quit', () => {
+  stopTopKeeper()
+  saveWindowState()
+})

@@ -98,6 +98,7 @@ export default function App() {
     setTagsDraft('')
     setNudge(true)
     window.setTimeout(() => setNudge(false), 380)
+    void window.suixinji?.celebratePet?.()
   }, [draft, tagsDraft, kind])
 
   const toggleDone = useCallback((id: string) => {

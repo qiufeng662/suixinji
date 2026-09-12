@@ -30,6 +30,9 @@ export type Settings = {
   petAnimation: boolean
   petShowBadge: boolean
   petShape: 'cutout' | 'circle'
+  petAlwaysOnTop: boolean
+  petLockPosition: boolean
+  petClickThrough: boolean
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -49,6 +52,9 @@ export const DEFAULT_SETTINGS: Settings = {
   petAnimation: true,
   petShowBadge: true,
   petShape: 'cutout',
+  petAlwaysOnTop: true,
+  petLockPosition: false,
+  petClickThrough: false,
 }
 
 export type Theme = {

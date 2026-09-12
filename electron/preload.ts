@@ -18,6 +18,9 @@ export type PetSettings = {
   petAnimation: boolean
   petShowBadge: boolean
   petShape?: 'cutout' | 'circle'
+  petAlwaysOnTop?: boolean
+  petLockPosition?: boolean
+  petClickThrough?: boolean
 }
 
 export type Settings = {
@@ -65,6 +68,14 @@ const api = {
       ipcRenderer.removeListener('pet:settings', listener)
     }
   },
+  onPetCelebrate: (cb: () => void) => {
+    const listener = () => cb()
+    ipcRenderer.on('pet:celebrate', listener)
+    return () => {
+      ipcRenderer.removeListener('pet:celebrate', listener)
+    }
+  },
+  celebratePet: (): Promise<void> => ipcRenderer.invoke('pet:celebrate'),
   petDragStart: (): void => {
     ipcRenderer.send('pet:drag-start')
   },

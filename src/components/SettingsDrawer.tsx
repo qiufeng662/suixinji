@@ -192,11 +192,38 @@ export function SettingsDrawer({
             />
           </div>
           <div className="row">
+            <span className="row-label">始终置顶</span>
+            <button
+              type="button"
+              className={`toggle${settings.petAlwaysOnTop ? ' on' : ''}`}
+              aria-pressed={settings.petAlwaysOnTop}
+              onClick={() => onChange({ petAlwaysOnTop: !settings.petAlwaysOnTop })}
+            />
+          </div>
+          <div className="row">
+            <span className="row-label">锁定位置</span>
+            <button
+              type="button"
+              className={`toggle${settings.petLockPosition ? ' on' : ''}`}
+              aria-pressed={settings.petLockPosition}
+              onClick={() => onChange({ petLockPosition: !settings.petLockPosition })}
+            />
+          </div>
+          <div className="row">
+            <span className="row-label">鼠标穿透（仅点透明区）</span>
+            <button
+              type="button"
+              className={`toggle${settings.petClickThrough ? ' on' : ''}`}
+              aria-pressed={settings.petClickThrough}
+              onClick={() => onChange({ petClickThrough: !settings.petClickThrough })}
+            />
+          </div>
+          <div className="row">
             <span className="row-label">挂件大小 · {settings.petSize}px</span>
             <input
               type="range"
               min={110}
-              max={220}
+              max={240}
               step={10}
               value={settings.petSize}
               onChange={(e) => onChange({ petSize: Number(e.target.value) })}

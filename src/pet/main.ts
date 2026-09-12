@@ -271,18 +271,41 @@ function hideMenu() {
   document.getElementById('pet-menu')?.classList.remove('open')
 }
 
+let lastSettings: PetSettings | null = null
+
+async function savePetPatch(patch: Partial<PetSettings>) {
+  const a = api()
+  if (!a) return
+  const store = await a.load()
+  lastSettings = {
+    ...(store.settings as PetSettings),
+    ...patch,
+  } as PetSettings
+  await a.save({
+    entries: store.entries,
+    settings: {
+      ...(store.settings as object),
+      ...patch,
+    },
+  })
+}
+
 function showMenu(x: number, y: number) {
   const menu = document.getElementById('pet-menu')!
+  const topOn = lastSettings?.petAlwaysOnTop !== false
+  const locked = Boolean(lastSettings?.petLockPosition)
   menu.innerHTML = `
     <button type="button" data-act="photo">更换照片</button>
     <button type="button" data-act="shape">切换抠图 / 圆形</button>
     <button type="button" data-act="open">打开随心记</button>
+    <button type="button" data-act="top">${topOn ? '取消置顶' : '恢复置顶'}</button>
+    <button type="button" data-act="lock">${locked ? '解锁位置' : '锁定位置'}</button>
     <hr />
     <button type="button" data-act="hide" class="danger">隐藏挂件</button>
   `
   menu.classList.add('open')
-  const mw = 160
-  const mh = 170
+  const mw = 168
+  const mh = 230
   const left = Math.min(x, window.innerWidth - mw - 4)
   const top = Math.min(y, window.innerHeight - mh - 4)
   menu.style.left = `${Math.max(4, left)}px`
@@ -296,6 +319,16 @@ function showMenu(x: number, y: number) {
     if (act === 'photo') void pickPhoto()
     if (act === 'shape') void toggleShape()
     if (act === 'open') void api()?.focusMainCard?.()
+    if (act === 'top') {
+      const next = !topOn
+      void savePetPatch({ petAlwaysOnTop: next })
+      showBubble(next ? '已置顶' : '已取消置顶')
+    }
+    if (act === 'lock') {
+      const next = !locked
+      void savePetPatch({ petLockPosition: next })
+      showBubble(next ? '位置已锁定' : '可以拖动了')
+    }
     if (act === 'hide') void api()?.setPetVisible(false)
   }
 }
@@ -403,6 +436,7 @@ async function init() {
   try {
     const store = await a.load()
     const s = (store.settings ?? {}) as PetSettings
+    lastSettings = s
     const shape: PetShape = s.petShape || (s.petImage ? 'cutout' : 'circle')
     if (s.petImage) await renderFace(s.petImage, shape)
     else renderDefault()
@@ -414,9 +448,22 @@ async function init() {
   }
 
   a.onPetSettings?.((s) => {
+    lastSettings = { ...lastSettings, ...s } as PetSettings
     const shape: PetShape = s.petShape || (s.petImage ? 'cutout' : 'circle')
     void renderFace(s.petImage || null, shape)
     applyIdle(Boolean(s.petAnimation))
+    void refreshBadge()
+  })
+
+  a.onPetCelebrate?.(() => {
+    const body = document.getElementById('pet-body')
+    if (body) {
+      body.classList.remove('is-pop')
+      void body.offsetWidth
+      body.classList.add('is-pop')
+    }
+    burstHearts()
+    showBubble('记下啦！', 1600)
     void refreshBadge()
   })
 }
