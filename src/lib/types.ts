@@ -45,7 +45,7 @@ export const DEFAULT_SETTINGS: Settings = {
   blur: 0,
   petEnabled: true,
   petImage: null,
-  petSize: 160,
+  petSize: 180,
   petAnimation: true,
   petShowBadge: true,
   petShape: 'cutout',

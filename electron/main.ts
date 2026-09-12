@@ -200,7 +200,12 @@ function createPetWindow() {
     show: false,
     backgroundColor: '#00000000',
     hasShadow: false,
-    title: '随心记挂件',
+    // 空标题：避免任务栏/Alt-Tab 显示「随心记挂件」
+    title: ' ',
+    autoHideMenuBar: true,
+    fullscreenable: false,
+    maximizable: false,
+    minimizable: false,
     icon: resolveAppIcon(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -212,6 +217,11 @@ function createPetWindow() {
 
   petWin.setAlwaysOnTop(true, 'screen-saver')
   petWin.setVisibleOnAllWorkspaces?.(true, { visibleOnFullScreen: true })
+  try {
+    petWin.setTitle(' ')
+  } catch {
+    /* ignore */
+  }
 
   if (isDev) {
     void petWin.loadURL('http://localhost:5173/pet.html')
