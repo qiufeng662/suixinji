@@ -442,6 +442,25 @@ function registerIpc() {
     const abs = absPetPath(String(filePath || ''))
     return { abs, exists: fs.existsSync(abs), size: fs.existsSync(abs) ? fs.statSync(abs).size : 0 }
   })
+
+  let petDrag: { dx: number; dy: number } | null = null
+  ipcMain.on('pet:drag-start', () => {
+    if (!petWin || petWin.isDestroyed()) return
+    const c = screen.getCursorScreenPoint()
+    const b = petWin.getBounds()
+    petDrag = { dx: c.x - b.x, dy: c.y - b.y }
+  })
+  ipcMain.on('pet:drag-move', (_e, screenX: number, screenY: number) => {
+    if (!petWin || petWin.isDestroyed() || !petDrag) return
+    const x = Math.round(Number(screenX) - petDrag.dx)
+    const y = Math.round(Number(screenY) - petDrag.dy)
+    petWin.setPosition(x, y)
+  })
+  ipcMain.on('pet:drag-end', () => {
+    petDrag = null
+    saveWindowState()
+  })
+
   ipcMain.handle('pet:open-external', (_e, url: String) => shell.openExternal(String(url)))
 }
 

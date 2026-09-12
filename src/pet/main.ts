@@ -94,7 +94,7 @@ async function renderFace(image: string | null, shape: PetShape) {
 
 function applyAnim(on: boolean) {
   const body = document.getElementById('pet-body')!
-  body.style.animation = on ? '' : 'none'
+  body.classList.toggle('anim-float', on)
 }
 
 function showBubble(text: string) {
@@ -196,6 +196,7 @@ function wire() {
   const photoBtn = document.getElementById('pet-photo')!
   const shapeBtn = document.getElementById('pet-shape')!
   const hideBtn = document.getElementById('pet-hide')!
+  const a = api()
 
   photoBtn.addEventListener('click', (e) => {
     e.stopPropagation()
@@ -207,16 +208,56 @@ function wire() {
   })
   hideBtn.addEventListener('click', (e) => {
     e.stopPropagation()
-    void api()?.setPetVisible(false)
+    void a?.setPetVisible(false)
   })
 
-  body.addEventListener('click', () => {
-    body.classList.remove('is-pop')
-    void body.offsetWidth
-    body.classList.add('is-pop')
-    showBubble(PHRASES[Math.floor(Math.random() * PHRASES.length)]!)
-    void refreshBadge()
-  })
+  // 自定义拖动（不用 app-region，保证点击可用）
+  let dragging = false
+  let moved = false
+  let startX = 0
+  let startY = 0
+
+  const onDown = (e: PointerEvent) => {
+    if ((e.target as HTMLElement).closest('.pet-actions')) return
+    dragging = true
+    moved = false
+    startX = e.screenX
+    startY = e.screenY
+    body.classList.add('is-dragging')
+    body.setPointerCapture(e.pointerId)
+    a?.petDragStart?.()
+  }
+  const onMove = (e: PointerEvent) => {
+    if (!dragging) return
+    const dx = e.screenX - startX
+    const dy = e.screenY - startY
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) moved = true
+    if (moved) a?.petDragMove?.(e.screenX, e.screenY)
+  }
+  const onUp = (e: PointerEvent) => {
+    if (!dragging) return
+    dragging = false
+    body.classList.remove('is-dragging')
+    try {
+      body.releasePointerCapture(e.pointerId)
+    } catch {
+      /* ignore */
+    }
+    a?.petDragEnd?.()
+    if (!moved) {
+      // 单击互动
+      body.classList.remove('is-pop')
+      void body.offsetWidth
+      body.classList.add('is-pop')
+      showBubble(PHRASES[Math.floor(Math.random() * PHRASES.length)]!)
+      void refreshBadge()
+    }
+  }
+
+  body.addEventListener('pointerdown', onDown)
+  body.addEventListener('pointermove', onMove)
+  body.addEventListener('pointerup', onUp)
+  body.addEventListener('pointercancel', onUp)
 }
 
 async function init() {
@@ -228,13 +269,13 @@ async function init() {
   try {
     const store = await a.load()
     const s = (store.settings ?? {}) as PetSettings
-    // 有照片时默认抠图原形（你要的人像挂件）
     const shape: PetShape = s.petShape || (s.petImage ? 'cutout' : 'circle')
     if (s.petImage) await renderFace(s.petImage, shape)
     else renderDefault()
-    applyAnim(s.petAnimation !== false)
+    // 默认不飘，避免「自己动」
+    applyAnim(Boolean(s.petAnimation))
     await refreshBadge()
-    showBubble(s.petImage ? '挂件就位' : '我在这儿～')
+    showBubble(s.petImage ? '拖我挪位置 · 点我一下' : '我在这儿～')
   } catch {
     /* keep default */
   }
@@ -242,7 +283,7 @@ async function init() {
   a.onPetSettings?.((s) => {
     const shape: PetShape = s.petShape || (s.petImage ? 'cutout' : 'circle')
     void renderFace(s.petImage || null, shape)
-    applyAnim(s.petAnimation !== false)
+    applyAnim(Boolean(s.petAnimation))
     void refreshBadge()
   })
 }

@@ -65,6 +65,15 @@ const api = {
       ipcRenderer.removeListener('pet:settings', listener)
     }
   },
+  petDragStart: (): void => {
+    ipcRenderer.send('pet:drag-start')
+  },
+  petDragMove: (screenX: number, screenY: number): void => {
+    ipcRenderer.send('pet:drag-move', screenX, screenY)
+  },
+  petDragEnd: (): void => {
+    ipcRenderer.send('pet:drag-end')
+  },
 }
 
 contextBridge.exposeInMainWorld('suixinji', api)

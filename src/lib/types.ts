@@ -46,7 +46,7 @@ export const DEFAULT_SETTINGS: Settings = {
   petEnabled: true,
   petImage: null,
   petSize: 160,
-  petAnimation: true,
+  petAnimation: false,
   petShowBadge: true,
   petShape: 'cutout',
 }

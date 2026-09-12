@@ -25,19 +25,22 @@ body,
 }
 
 .pet-body {
-  -webkit-app-region: drag;
   position: relative;
   cursor: grab;
-  animation: floaty 3.2s ease-in-out infinite;
   max-width: 100%;
   max-height: 100%;
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  /* 不用 app-region: drag，否则点击会被系统吞掉 */
 }
 
-.pet-body:active {
+.pet-body.is-dragging {
   cursor: grabbing;
+}
+
+.pet-body.anim-float {
+  animation: floaty 3.2s ease-in-out infinite;
 }
 
 .pet-body.is-pop {
@@ -199,7 +202,6 @@ body,
   pointer-events: none;
   white-space: nowrap;
   transition: opacity 0.2s ease, transform 0.2s ease;
-  -webkit-app-region: no-drag;
   z-index: 4;
 }
 
@@ -217,7 +219,6 @@ body,
   gap: 4px;
   opacity: 0;
   transition: opacity 0.15s ease;
-  -webkit-app-region: no-drag;
   z-index: 5;
 }
 
