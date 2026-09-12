@@ -394,6 +394,7 @@ function wire() {
 }
 
 async function init() {
+  document.title = ' '
   buildDom()
   wire()
   renderDefault()
