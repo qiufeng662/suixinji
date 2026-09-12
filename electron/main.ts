@@ -161,6 +161,26 @@ function stopTopKeeper() {
   topTimer = null
 }
 
+function stripChromeArtifacts(w: BrowserWindow | null) {
+  if (!w || w.isDestroyed()) return
+  try {
+    w.setBackgroundColor('#00000000')
+  } catch {
+    /* ignore */
+  }
+  // 透明窗在 Win 上有时残留 1px 亮边；opacity 抖动会强制分层窗重绘
+  if (process.platform === 'win32') {
+    try {
+      w.setOpacity(0.98)
+      setTimeout(() => {
+        if (!w.isDestroyed()) w.setOpacity(1)
+      }, 40)
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 function createWindow() {
   const bounds = loadWindowState()
 
@@ -203,6 +223,7 @@ function createWindow() {
   win.once('ready-to-show', () => {
     win?.show()
     forceTop(win)
+    stripChromeArtifacts(win)
   })
 
   win.on('moved', saveWindowState)
@@ -243,9 +264,7 @@ function createPetWindow() {
     show: false,
     backgroundColor: '#00000000',
     hasShadow: false,
-    // 去掉 Windows 可缩放厚边框/描边痕迹
     thickFrame: false,
-    type: 'panel',
     title: ' ',
     autoHideMenuBar: true,
     fullscreenable: false,
@@ -277,6 +296,7 @@ function createPetWindow() {
     if (petEnabledFromStore()) {
       petWin?.show()
       forceTop(petWin)
+      stripChromeArtifacts(petWin)
     }
   })
 
@@ -295,6 +315,7 @@ function setPetVisible(flag: boolean) {
     else {
       petWin.show()
       forceTop(petWin)
+      stripChromeArtifacts(petWin)
     }
   } else {
     petWin?.hide()
