@@ -126,6 +126,13 @@ export default function App() {
     setSettings((prev) => ({ ...prev, ...patch }))
   }, [])
 
+  const pickPetImage = useCallback(async () => {
+    if (!window.suixinji?.pickPetImage) return
+    const rel = await window.suixinji.pickPetImage()
+    if (!rel) return
+    setSettings((prev) => ({ ...prev, petImage: rel, petEnabled: true }))
+  }, [])
+
   const onPointerMove = (e: React.PointerEvent) => {
     const el = cardRef.current
     if (!el) return
@@ -334,6 +341,7 @@ export default function App() {
                   setEntries([])
                   setShowSettings(false)
                 }}
+                onPickPetImage={() => void pickPetImage()}
               />
             </>
           )}

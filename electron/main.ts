@@ -1,30 +1,39 @@
-import { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage } from 'electron'
+import { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage, dialog, protocol, net, shell } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
 import os from 'node:os'
+import { pathToFileURL } from 'node:url'
 
 // CJS bundle: __dirname is provided by Node
 declare const __dirname: string
 
 const isDev = !app.isPackaged
 let win: BrowserWindow | null = null
+let petWin: BrowserWindow | null = null
 let tray: Tray | null = null
 
 const DATA_DIR = path.join(app.getPath('userData'), 'suixinji')
 const DATA_FILE = path.join(DATA_DIR, 'data.json')
 const WIN_FILE = path.join(DATA_DIR, 'window.json')
+const PET_FILE = path.join(DATA_DIR, 'pet-window.json')
+const PET_IMG_DIR = path.join(DATA_DIR, 'pets')
 
 type Store = {
   entries: unknown[]
   settings: Record<string, unknown>
 }
 
-function ensureStore(): Store {
+function ensureDirs() {
   try {
     fs.mkdirSync(DATA_DIR, { recursive: true })
+    fs.mkdirSync(PET_IMG_DIR, { recursive: true })
   } catch {
     /* ignore */
   }
+}
+
+function ensureStore(): Store {
+  ensureDirs()
   if (!fs.existsSync(DATA_FILE)) {
     const init: Store = { entries: [], settings: {} }
     fs.writeFileSync(DATA_FILE, JSON.stringify(init, null, 2), 'utf-8')
@@ -64,14 +73,46 @@ function loadWindowState() {
   }
 }
 
-function saveWindowState() {
-  if (!win || win.isDestroyed()) return
-  const b = win.getBounds()
+function loadPetWindowState() {
   try {
-    fs.mkdirSync(DATA_DIR, { recursive: true })
-    fs.writeFileSync(WIN_FILE, JSON.stringify(b, null, 2), 'utf-8')
+    if (fs.existsSync(PET_FILE)) {
+      return JSON.parse(fs.readFileSync(PET_FILE, 'utf-8')) as {
+        x: number
+        y: number
+        width: number
+        height: number
+      }
+    }
   } catch {
     /* ignore */
+  }
+  const { workArea } = screen.getPrimaryDisplay()
+  return {
+    x: workArea.x + workArea.width - 200,
+    y: workArea.y + workArea.height - 220,
+    width: 160,
+    height: 180,
+  }
+}
+
+function saveWindowState() {
+  if (win && !win.isDestroyed()) {
+    const b = win.getBounds()
+    try {
+      ensureDirs()
+      fs.writeFileSync(WIN_FILE, JSON.stringify(b, null, 2), 'utf-8')
+    } catch {
+      /* ignore */
+    }
+  }
+  if (petWin && !petWin.isDestroyed()) {
+    const b = petWin.getBounds()
+    try {
+      ensureDirs()
+      fs.writeFileSync(PET_FILE, JSON.stringify(b, null, 2), 'utf-8')
+    } catch {
+      /* ignore */
+    }
   }
 }
 
@@ -113,7 +154,7 @@ function createWindow() {
   win.setVisibleOnAllWorkspaces?.(true, { visibleOnFullScreen: true })
 
   if (isDev) {
-    void win.loadURL('http://localhost:5173')
+    void win.loadURL('http://localhost:5173/')
   } else {
     void win.loadFile(path.join(__dirname, '../dist/index.html'))
   }
@@ -128,6 +169,86 @@ function createWindow() {
   win.on('closed', () => {
     win = null
   })
+}
+
+function petEnabledFromStore(): boolean {
+  const s = ensureStore().settings
+  return s.petEnabled !== false
+}
+
+function createPetWindow() {
+  if (petWin && !petWin.isDestroyed()) {
+    petWin.show()
+    return petWin
+  }
+  const bounds = loadPetWindowState()
+  const size = Math.max(100, Math.min(240, Number(ensureStore().settings.petSize) || 160))
+
+  petWin = new BrowserWindow({
+    x: bounds.x,
+    y: bounds.y,
+    width: size,
+    height: size + 20,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    show: false,
+    backgroundColor: '#00000000',
+    hasShadow: false,
+    title: '随心记挂件',
+    icon: resolveAppIcon(),
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+    },
+  })
+
+  petWin.setAlwaysOnTop(true, 'screen-saver')
+  petWin.setVisibleOnAllWorkspaces?.(true, { visibleOnFullScreen: true })
+
+  if (isDev) {
+    void petWin.loadURL('http://localhost:5173/pet.html')
+  } else {
+    void petWin.loadFile(path.join(__dirname, '../dist/pet.html'))
+  }
+
+  petWin.once('ready-to-show', () => {
+    if (petEnabledFromStore()) petWin?.show()
+  })
+
+  petWin.on('moved', saveWindowState)
+  petWin.on('closed', () => {
+    petWin = null
+  })
+
+  return petWin
+}
+
+function setPetVisible(flag: boolean) {
+  if (flag) {
+    if (!petWin || petWin.isDestroyed()) createPetWindow()
+    else petWin.show()
+  } else {
+    petWin?.hide()
+  }
+}
+
+function broadcastPetSettings(settings: Record<string, unknown>) {
+  const payload = {
+    petEnabled: settings.petEnabled !== false,
+    petImage: typeof settings.petImage === 'string' ? settings.petImage : null,
+    petSize: Number(settings.petSize) || 160,
+    petAnimation: settings.petAnimation !== false,
+    petShowBadge: settings.petShowBadge !== false,
+  }
+  petWin?.webContents.send('pet:settings', payload)
+  if (win && !win.isDestroyed()) {
+    win.webContents.send('pet:settings', payload)
+  }
 }
 
 function createTray() {
@@ -158,7 +279,7 @@ function createTray() {
   tray.setToolTip('随心记')
   const menu = Menu.buildFromTemplate([
     {
-      label: '显示 / 隐藏',
+      label: '显示 / 隐藏卡片',
       click: () => {
         if (!win) return
         if (win.isVisible()) win.hide()
@@ -166,6 +287,13 @@ function createTray() {
           win.show()
           win.focus()
         }
+      },
+    },
+    {
+      label: '显示 / 隐藏挂件',
+      click: () => {
+        if (petWin && !petWin.isDestroyed() && petWin.isVisible()) setPetVisible(false)
+        else setPetVisible(true)
       },
     },
     { type: 'separator' },
@@ -182,12 +310,21 @@ function createTray() {
   })
 }
 
+function toPetImageUrl(filePath: string): string {
+  if (!filePath) return ''
+  if (filePath.startsWith('petfile://') || filePath.startsWith('data:') || filePath.startsWith('http')) {
+    return filePath
+  }
+  const abs = path.isAbsolute(filePath) ? filePath : path.join(PET_IMG_DIR, filePath)
+  return pathToFileURL(abs).href.replace(/^file:/, 'petfile:')
+}
+
 function registerIpc() {
   ipcMain.handle('store:load', () => ensureStore())
 
   ipcMain.handle('store:save', (_e, payload: Store) => {
     try {
-      fs.mkdirSync(DATA_DIR, { recursive: true })
+      ensureDirs()
       fs.writeFileSync(
         DATA_FILE,
         JSON.stringify(
@@ -200,14 +337,20 @@ function registerIpc() {
         ),
         'utf-8',
       )
+      if (payload?.settings) {
+        broadcastPetSettings(payload.settings as Record<string, unknown>)
+        const petSize = Number((payload.settings as Record<string, unknown>).petSize)
+        if (petWin && !petWin.isDestroyed() && petSize >= 100) {
+          const b = petWin.getBounds()
+          petWin.setBounds({ x: b.x, y: b.y, width: Math.round(petSize), height: Math.round(petSize) + 20 })
+        }
+      }
+      const petOn = (payload?.settings as Record<string, unknown> | undefined)?.petEnabled !== false
+      setPetVisible(petOn)
       return { ok: true }
     } catch (err) {
       return { ok: false, error: String(err) }
     }
-  })
-
-  ipcMain.handle('win:drag-start', () => {
-    // handled in renderer via CSS -webkit-app-region; kept for future
   })
 
   ipcMain.handle('win:set-always-on-top', (_e, flag: boolean) => {
@@ -235,26 +378,84 @@ function registerIpc() {
   ipcMain.handle('app:paths', () => ({
     dataDir: DATA_DIR,
     dataFile: DATA_FILE,
+    petDir: PET_IMG_DIR,
     platform: process.platform,
     home: os.homedir(),
   }))
+
+  ipcMain.handle('pet:pick-image', async () => {
+    const owner = win && !win.isDestroyed() ? win : petWin && !petWin.isDestroyed() ? petWin : undefined
+    const result = await dialog.showOpenDialog(owner ?? BrowserWindow.getAllWindows()[0]!, {
+      title: '选择挂件照片',
+      properties: ['openFile'],
+      filters: [
+        { name: '图片', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] },
+      ],
+    })
+    if (result.canceled || !result.filePaths[0]) return null
+    const src = result.filePaths[0]
+    ensureDirs()
+    const ext = path.extname(src).toLowerCase() || '.png'
+    const dest = path.join(PET_IMG_DIR, `avatar${ext}`)
+    try {
+      fs.copyFileSync(src, dest)
+    } catch {
+      return null
+    }
+    return `avatar${ext}`
+  })
+
+  ipcMain.handle('pet:set-visible', (_e, flag: boolean) => {
+    setPetVisible(Boolean(flag))
+    return Boolean(flag)
+  })
+
+  ipcMain.handle('pet:to-url', (_e, filePath: string) => toPetImageUrl(String(filePath || '')))
+  ipcMain.handle('pet:open-external', (_e, url: String) => shell.openExternal(String(url)))
 }
 
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'petfile',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      stream: true,
+      bypassCSP: true,
+    },
+  },
+])
+
 app.whenReady().then(() => {
+  protocol.handle('petfile', (request) => {
+    try {
+      const u = new URL(request.url)
+      // pathname like /C:/Users/... or /home/...
+      let p = decodeURIComponent(u.pathname)
+      if (/^\/[A-Za-z]:/.test(p)) p = p.slice(1)
+      if (process.platform === 'win32') p = p.replace(/\//g, '\\')
+      return net.fetch(pathToFileURL(p).href)
+    } catch {
+      return new Response('Not found', { status: 404 })
+    }
+  })
+
   registerIpc()
   createWindow()
   createTray()
+  if (petEnabledFromStore()) createPetWindow()
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow()
+      if (petEnabledFromStore()) createPetWindow()
+    }
   })
 })
 
 app.on('window-all-closed', () => {
   // keep tray app alive on Windows unless explicitly quit
-  if (process.platform !== 'darwin') {
-    // do not quit — tray keeps it living; user exits via tray menu
-  }
 })
 
 app.on('before-quit', saveWindowState)

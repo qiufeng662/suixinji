@@ -24,6 +24,11 @@ export type Settings = {
   fontFamily: 'sans' | 'serif'
   showStats: boolean
   blur: number
+  petEnabled: boolean
+  petImage: string | null
+  petSize: number
+  petAnimation: boolean
+  petShowBadge: boolean
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -37,6 +42,11 @@ export const DEFAULT_SETTINGS: Settings = {
   fontFamily: 'sans',
   showStats: true,
   blur: 0,
+  petEnabled: true,
+  petImage: null,
+  petSize: 160,
+  petAnimation: true,
+  petShowBadge: true,
 }
 
 export type Theme = {

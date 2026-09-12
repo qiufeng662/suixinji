@@ -6,9 +6,17 @@ type Props = {
   onChange: (patch: Partial<Settings>) => void
   onClose: () => void
   onClearAll: () => void
+  onPickPetImage: () => void
 }
 
-export function SettingsDrawer({ settings, accents, onChange, onClose, onClearAll }: Props) {
+export function SettingsDrawer({
+  settings,
+  accents,
+  onChange,
+  onClose,
+  onClearAll,
+  onPickPetImage,
+}: Props) {
   return (
     <aside className="drawer" role="dialog" aria-label="设置">
       <div className="drawer-head">
@@ -152,6 +160,55 @@ export function SettingsDrawer({ settings, accents, onChange, onClose, onClearAl
             onChange={(e) => onChange({ customKindLabel: e.target.value })}
             placeholder="例如：灵感 / 碎片"
           />
+        </div>
+
+        <div className="field">
+          <div className="field-label">桌面挂件</div>
+          <div className="row">
+            <span className="row-label">显示挂件</span>
+            <button
+              type="button"
+              className={`toggle${settings.petEnabled ? ' on' : ''}`}
+              aria-pressed={settings.petEnabled}
+              onClick={() => onChange({ petEnabled: !settings.petEnabled })}
+            />
+          </div>
+          <div className="row">
+            <span className="row-label">浮动动画</span>
+            <button
+              type="button"
+              className={`toggle${settings.petAnimation ? ' on' : ''}`}
+              aria-pressed={settings.petAnimation}
+              onClick={() => onChange({ petAnimation: !settings.petAnimation })}
+            />
+          </div>
+          <div className="row">
+            <span className="row-label">今日完成角标</span>
+            <button
+              type="button"
+              className={`toggle${settings.petShowBadge ? ' on' : ''}`}
+              aria-pressed={settings.petShowBadge}
+              onClick={() => onChange({ petShowBadge: !settings.petShowBadge })}
+            />
+          </div>
+          <div className="row">
+            <span className="row-label">挂件大小 · {settings.petSize}px</span>
+            <input
+              type="range"
+              min={110}
+              max={220}
+              step={10}
+              value={settings.petSize}
+              onChange={(e) => onChange({ petSize: Number(e.target.value) })}
+            />
+          </div>
+          <div className="row">
+            <span className="row-label">挂件照片</span>
+            <button type="button" className="add-btn" onClick={onPickPetImage}>
+              {settings.petImage ? '更换照片' : '选择照片'}
+            </button>
+          </div>
+          <div className="hint">未选照片时使用默认形象；照片会复制到本机数据目录。</div>
         </div>
 
         <div className="hint">

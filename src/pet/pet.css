@@ -1,0 +1,213 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#pet-root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+}
+
+.pet-stage {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+
+.pet-body {
+  -webkit-app-region: drag;
+  width: min(92%, 200px);
+  aspect-ratio: 1;
+  position: relative;
+  cursor: grab;
+  animation: floaty 3.2s ease-in-out infinite;
+  filter: drop-shadow(0 10px 16px rgba(28, 25, 23, 0.22));
+  transition: transform 0.15s ease;
+}
+
+.pet-body:active {
+  cursor: grabbing;
+}
+
+.pet-body.is-pop {
+  animation: pop 0.45s ease;
+}
+
+.pet-face {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 35% 30%, #fff8ea 0%, #f0e6d4 45%, #d9cbb3 100%);
+  border: 3px solid rgba(255, 255, 255, 0.72);
+  box-shadow:
+    inset 0 -8px 16px rgba(28, 25, 23, 0.08),
+    inset 0 8px 12px rgba(255, 255, 255, 0.45);
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+
+.pet-face img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+
+.pet-default {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  position: relative;
+  background:
+    radial-gradient(circle at 30% 25%, #7baf96 0%, #3d5a4c 55%, #2a3f35 100%);
+}
+
+.pet-default .eye {
+  position: absolute;
+  top: 42%;
+  width: 10%;
+  height: 14%;
+  border-radius: 50%;
+  background: #1c1917;
+  animation: blink 4.5s infinite;
+}
+
+.pet-default .eye.left { left: 32%; }
+.pet-default .eye.right { right: 32%; }
+
+.pet-default .smile {
+  position: absolute;
+  top: 58%;
+  width: 22%;
+  height: 12%;
+  border: 3px solid #1c1917;
+  border-top: none;
+  border-radius: 0 0 40px 40px;
+}
+
+.pet-default .blush {
+  position: absolute;
+  top: 54%;
+  width: 14%;
+  height: 8%;
+  border-radius: 50%;
+  background: rgba(196, 120, 90, 0.45);
+}
+
+.pet-default .blush.left { left: 18%; }
+.pet-default .blush.right { right: 18%; }
+
+.pet-badge {
+  position: absolute;
+  right: 6%;
+  bottom: 8%;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #3d5a4c;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 4px 10px rgba(28, 25, 23, 0.25);
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  pointer-events: none;
+}
+
+.pet-bubble {
+  position: absolute;
+  left: 50%;
+  bottom: 108%;
+  transform: translateX(-50%) translateY(6px);
+  max-width: 180px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: #f6f1e7;
+  color: #1c1917;
+  font-size: 12px;
+  line-height: 1.4;
+  box-shadow: 0 8px 18px rgba(28, 25, 23, 0.18);
+  opacity: 0;
+  pointer-events: none;
+  white-space: nowrap;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  -webkit-app-region: no-drag;
+}
+
+.pet-bubble.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.pet-actions {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  -webkit-app-region: no-drag;
+  z-index: 5;
+}
+
+.pet-stage:hover .pet-actions {
+  opacity: 1;
+}
+
+.pet-actions button {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(246, 241, 231, 0.92);
+  color: #1c1917;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(28, 25, 23, 0.15);
+}
+
+.pet-actions button:hover {
+  background: #fff;
+}
+
+@keyframes floaty {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes pop {
+  0% { transform: scale(1); }
+  35% { transform: scale(0.92, 1.06); }
+  70% { transform: scale(1.05, 0.96); }
+  100% { transform: scale(1); }
+}
+
+@keyframes blink {
+  0%, 46%, 50%, 100% { transform: scaleY(1); }
+  48% { transform: scaleY(0.12); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pet-body,
+  .pet-default .eye {
+    animation: none !important;
+  }
+}

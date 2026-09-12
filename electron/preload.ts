@@ -11,6 +11,14 @@ export type Entry = {
   doneAt?: string
 }
 
+export type PetSettings = {
+  petEnabled: boolean
+  petImage: string | null
+  petSize: number
+  petAnimation: boolean
+  petShowBadge: boolean
+}
+
 export type Settings = {
   themeId: string
   accent: string
@@ -22,7 +30,7 @@ export type Settings = {
   fontFamily: 'sans' | 'serif'
   showStats: boolean
   blur: number
-}
+} & PetSettings
 
 export type StoreShape = {
   entries: Entry[]
@@ -39,8 +47,23 @@ const api = {
   minimize: (): Promise<void> => ipcRenderer.invoke('win:minimize'),
   close: (): Promise<void> => ipcRenderer.invoke('win:close'),
   quit: (): Promise<void> => ipcRenderer.invoke('win:quit'),
-  paths: (): Promise<{ dataDir: string; dataFile: string; platform: string; home: string }> =>
-    ipcRenderer.invoke('app:paths'),
+  paths: (): Promise<{
+    dataDir: string
+    dataFile: string
+    petDir: string
+    platform: string
+    home: string
+  }> => ipcRenderer.invoke('app:paths'),
+  pickPetImage: (): Promise<string | null> => ipcRenderer.invoke('pet:pick-image'),
+  setPetVisible: (flag: boolean): Promise<boolean> => ipcRenderer.invoke('pet:set-visible', flag),
+  petToUrl: (filePath: string): Promise<string> => ipcRenderer.invoke('pet:to-url', filePath),
+  onPetSettings: (cb: (payload: PetSettings) => void) => {
+    const listener = (_e: Electron.IpcRendererEvent, payload: PetSettings) => cb(payload)
+    ipcRenderer.on('pet:settings', listener)
+    return () => {
+      ipcRenderer.removeListener('pet:settings', listener)
+    }
+  },
 }
 
 contextBridge.exposeInMainWorld('suixinji', api)

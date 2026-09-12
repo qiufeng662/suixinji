@@ -66,6 +66,7 @@ export async function applyWindowChrome(settings: Settings) {
   try {
     await window.suixinji!.setAlwaysOnTop(settings.alwaysOnTop)
     await window.suixinji!.setOpacity(settings.opacity)
+    await window.suixinji!.setPetVisible(settings.petEnabled !== false)
   } catch {
     /* ignore */
   }
