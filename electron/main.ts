@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage, dialog, p
 import path from 'node:path'
 import fs from 'node:fs'
 import os from 'node:os'
+import { execFile } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
 
 // CJS bundle: __dirname is provided by Node
@@ -168,7 +169,11 @@ function stripChromeArtifacts(w: BrowserWindow | null) {
   } catch {
     /* ignore */
   }
-  // 透明窗在 Win 上有时残留 1px 亮边；opacity 抖动会强制分层窗重绘
+  try {
+    w.setMenu(null)
+  } catch {
+    /* ignore */
+  }
   if (process.platform === 'win32') {
     try {
       w.setOpacity(0.98)
@@ -178,7 +183,49 @@ function stripChromeArtifacts(w: BrowserWindow | null) {
     } catch {
       /* ignore */
     }
+    try {
+      disableWin11Caption(w)
+    } catch {
+      /* ignore */
+    }
   }
+}
+
+/** Win11 会在透明无边框窗顶部画通栏亮条（标题/圆角非客户区） */
+function disableWin11Caption(w: BrowserWindow) {
+  const buf = w.getNativeWindowHandle()
+  const hwnd = buf.readBigUInt64LE(0)
+  const script = `
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+public static class NativeWin {
+  [DllImport("dwmapi.dll")]
+  public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int val, int size);
+  [DllImport("user32.dll")]
+  public static extern int GetWindowLong(IntPtr hwnd, int index);
+  [DllImport("user32.dll")]
+  public static extern int SetWindowLong(IntPtr hwnd, int index, int newLong);
+}
+'@
+$h = [IntPtr]${hwnd}
+# DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_DONOTROUND = 1
+$corner = 1
+[NativeWin]::DwmSetWindowAttribute($h, 33, [ref]$corner, 4) | Out-Null
+# 去掉 WS_CAPTION(0x00C00000)，保留可调整时的 WS_THICKFRAME(0x00040000)
+$GWL_STYLE = -16
+$WS_CAPTION = 0x00C00000
+$style = [NativeWin]::GetWindowLong($h, $GWL_STYLE)
+$style = $style -band (-bnot $WS_CAPTION)
+[NativeWin]::SetWindowLong($h, $GWL_STYLE, $style) | Out-Null
+`
+  execFile(
+    'powershell.exe',
+    ['-NoProfile', '-NonInteractive', '-Command', script],
+    () => {
+      /* ignore */
+    },
+  )
 }
 
 function createWindow() {
@@ -197,7 +244,6 @@ function createWindow() {
     backgroundColor: '#00000000',
     hasShadow: false,
     title: ' ',
-    titleBarStyle: 'hidden',
     autoHideMenuBar: true,
     icon: resolveAppIcon(),
     webPreferences: {
@@ -207,6 +253,12 @@ function createWindow() {
       sandbox: false,
     },
   })
+
+  try {
+    win.setMenu(null)
+  } catch {
+    /* ignore */
+  }
 
   forceTop(win)
   try {
@@ -267,7 +319,6 @@ function createPetWindow() {
     hasShadow: false,
     thickFrame: false,
     title: ' ',
-    titleBarStyle: 'hidden',
     autoHideMenuBar: true,
     fullscreenable: false,
     maximizable: false,
@@ -280,6 +331,12 @@ function createPetWindow() {
       sandbox: false,
     },
   })
+
+  try {
+    petWin.setMenu(null)
+  } catch {
+    /* ignore */
+  }
 
   forceTop(petWin)
   try {
@@ -611,6 +668,13 @@ protocol.registerSchemesAsPrivileged([
 ])
 
 app.whenReady().then(() => {
+  // 关掉默认应用菜单，否则 Windows 上常在窗顶留一条菜单栏白条
+  try {
+    Menu.setApplicationMenu(null)
+  } catch {
+    /* ignore */
+  }
+
   protocol.handle('petfile', (request) => {
     try {
       const u = new URL(request.url)
