@@ -314,13 +314,32 @@ function createTray() {
   })
 }
 
+function absPetPath(filePath: string): string {
+  if (!filePath) return ''
+  if (path.isAbsolute(filePath)) return filePath
+  return path.join(PET_IMG_DIR, filePath)
+}
+
+function mimeFromPath(p: string): string {
+  const ext = path.extname(p).toLowerCase()
+  if (ext === '.png') return 'image/png'
+  if (ext === '.webp') return 'image/webp'
+  if (ext === '.gif') return 'image/gif'
+  if (ext === '.bmp') return 'image/bmp'
+  return 'image/jpeg'
+}
+
 function toPetImageUrl(filePath: string): string {
   if (!filePath) return ''
-  if (filePath.startsWith('petfile://') || filePath.startsWith('data:') || filePath.startsWith('http')) {
-    return filePath
+  if (filePath.startsWith('data:')) return filePath
+  const abs = absPetPath(filePath)
+  try {
+    if (!fs.existsSync(abs)) return ''
+    const buf = fs.readFileSync(abs)
+    return `data:${mimeFromPath(abs)};base64,${buf.toString('base64')}`
+  } catch {
+    return ''
   }
-  const abs = path.isAbsolute(filePath) ? filePath : path.join(PET_IMG_DIR, filePath)
-  return pathToFileURL(abs).href.replace(/^file:/, 'petfile:')
 }
 
 function registerIpc() {
@@ -419,6 +438,10 @@ function registerIpc() {
   })
 
   ipcMain.handle('pet:to-url', (_e, filePath: string) => toPetImageUrl(String(filePath || '')))
+  ipcMain.handle('pet:debug-path', (_e, filePath: string) => {
+    const abs = absPetPath(String(filePath || ''))
+    return { abs, exists: fs.existsSync(abs), size: fs.existsSync(abs) ? fs.statSync(abs).size : 0 }
+  })
   ipcMain.handle('pet:open-external', (_e, url: String) => shell.openExternal(String(url)))
 }
 

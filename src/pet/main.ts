@@ -69,23 +69,25 @@ async function renderFace(image: string | null, shape: PetShape) {
   }
   const a = api()
   let url = image
-  if (a?.petToUrl && !image.startsWith('data:') && !image.startsWith('petfile://')) {
+  if (a?.petToUrl && !image.startsWith('data:')) {
     try {
       url = await a.petToUrl(image)
     } catch {
       url = image
     }
   }
+  if (!url) {
+    setShape('default')
+    face.innerHTML = `<div class="pet-fail">图片读取失败<br/>请重新选择照片</div>`
+    return
+  }
   setShape(shape)
   face.innerHTML = `<img src="${url}" alt="挂件" draggable="false" id="pet-img" />`
   const img = document.getElementById('pet-img') as HTMLImageElement | null
   if (img) {
-    img.addEventListener('load', () => {
-      // keep window roughly fitting cutout; main resizes on IPC if needed
-      const body = document.getElementById('pet-body')
-      if (body && shape === 'cutout') {
-        body.style.maxHeight = '100%'
-      }
+    img.addEventListener('error', () => {
+      setShape('default')
+      face.innerHTML = `<div class="pet-fail">图片加载失败</div>`
     })
   }
 }

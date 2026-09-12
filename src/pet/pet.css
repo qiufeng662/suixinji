@@ -154,6 +154,14 @@ body,
 .pet-default .blush.left { left: 18%; }
 .pet-default .blush.right { right: 18%; }
 
+.pet-fail {
+  padding: 16px;
+  text-align: center;
+  font-size: 12px;
+  color: #a8a29e;
+  line-height: 1.5;
+}
+
 .pet-badge {
   position: absolute;
   right: 4%;
