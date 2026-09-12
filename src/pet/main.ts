@@ -61,6 +61,56 @@ function renderDefault() {
   `
 }
 
+/** 抠掉近白背景（JPG/截图常用），得到透明 PNG dataURL */
+async function stripWhiteBackground(srcUrl: string): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      try {
+        const max = 640
+        const scale = Math.min(1, max / Math.max(img.width, img.height, 1))
+        const w = Math.max(1, Math.round(img.width * scale))
+        const h = Math.max(1, Math.round(img.height * scale))
+        const canvas = document.createElement('canvas')
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext('2d', { willReadFrequently: true })
+        if (!ctx) {
+          resolve(srcUrl)
+          return
+        }
+        ctx.drawImage(img, 0, 0, w, h)
+        const imageData = ctx.getImageData(0, 0, w, h)
+        const d = imageData.data
+        const hard = 242
+        const soft = 220
+        for (let i = 0; i < d.length; i += 4) {
+          const r = d[i]!
+          const g = d[i + 1]!
+          const b = d[i + 2]!
+          const maxC = Math.max(r, g, b)
+          const minC = Math.min(r, g, b)
+          const isNearWhite = minC >= soft && maxC - minC < 18
+          if (isNearWhite) {
+            if (minC >= hard) {
+              d[i + 3] = 0
+            } else {
+              const t = (minC - soft) / (hard - soft)
+              d[i + 3] = Math.min(d[i + 3]!, Math.round(255 * (1 - t)))
+            }
+          }
+        }
+        ctx.putImageData(imageData, 0, 0)
+        resolve(canvas.toDataURL('image/png'))
+      } catch {
+        resolve(srcUrl)
+      }
+    }
+    img.onerror = () => resolve(srcUrl)
+    img.src = srcUrl
+  })
+}
+
 async function renderFace(image: string | null, shape: PetShape) {
   const face = document.getElementById('pet-face')!
   if (!image) {
@@ -81,6 +131,12 @@ async function renderFace(image: string | null, shape: PetShape) {
     face.innerHTML = `<div class="pet-fail">图片读取失败<br/>请重新选择照片</div>`
     return
   }
+
+  // 抠图模式：去掉白底，避免 JPG/截图带白方块
+  if (shape === 'cutout') {
+    url = await stripWhiteBackground(url)
+  }
+
   setShape(shape)
   face.innerHTML = `<img src="${url}" alt="挂件" draggable="false" id="pet-img" />`
   const img = document.getElementById('pet-img') as HTMLImageElement | null

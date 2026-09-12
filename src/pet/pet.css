@@ -69,8 +69,10 @@ body,
   height: auto;
   object-fit: contain;
   pointer-events: none;
-  filter: drop-shadow(0 10px 14px rgba(28, 25, 23, 0.28));
+  /* 不给白底图加阴影，避免白块更明显 */
+  filter: drop-shadow(0 6px 10px rgba(28, 25, 23, 0.18));
   border-radius: 0;
+  background: transparent;
 }
 
 /* —— 圆形头像模式 —— */
