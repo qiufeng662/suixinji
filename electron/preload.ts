@@ -17,6 +17,7 @@ export type PetSettings = {
   petSize: number
   petAnimation: boolean
   petShowBadge: boolean
+  petShape?: 'cutout' | 'circle'
 }
 
 export type Settings = {

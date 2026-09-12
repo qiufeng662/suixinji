@@ -203,12 +203,33 @@ export function SettingsDrawer({
             />
           </div>
           <div className="row">
+            <span className="row-label">显示形状</span>
+            <div className="seg">
+              <button
+                type="button"
+                className={settings.petShape !== 'circle' ? 'active' : ''}
+                onClick={() => onChange({ petShape: 'cutout' })}
+              >
+                抠图原形
+              </button>
+              <button
+                type="button"
+                className={settings.petShape === 'circle' ? 'active' : ''}
+                onClick={() => onChange({ petShape: 'circle' })}
+              >
+                圆形头像
+              </button>
+            </div>
+          </div>
+          <div className="row">
             <span className="row-label">挂件照片</span>
             <button type="button" className="add-btn" onClick={onPickPetImage}>
               {settings.petImage ? '更换照片' : '选择照片'}
             </button>
           </div>
-          <div className="hint">未选照片时使用默认形象；照片会复制到本机数据目录。</div>
+          <div className="hint">
+            推荐选透明底 PNG 抠图人像（原形挂桌角）；JPG 可用圆形头像模式。照片只存本机，不会打进安装包。
+          </div>
         </div>
 
         <div className="hint">

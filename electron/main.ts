@@ -183,12 +183,15 @@ function createPetWindow() {
   }
   const bounds = loadPetWindowState()
   const size = Math.max(100, Math.min(240, Number(ensureStore().settings.petSize) || 160))
+  const shape = ensureStore().settings.petShape === 'circle' ? 'circle' : 'cutout'
+  const w = shape === 'circle' ? size : Math.round(size * 0.85)
+  const h = shape === 'circle' ? size + 20 : Math.round(size * 1.35)
 
   petWin = new BrowserWindow({
     x: bounds.x,
     y: bounds.y,
-    width: size,
-    height: size + 20,
+    width: w,
+    height: h,
     frame: false,
     transparent: true,
     resizable: false,
@@ -244,6 +247,7 @@ function broadcastPetSettings(settings: Record<string, unknown>) {
     petSize: Number(settings.petSize) || 160,
     petAnimation: settings.petAnimation !== false,
     petShowBadge: settings.petShowBadge !== false,
+    petShape: settings.petShape === 'circle' ? 'circle' : 'cutout',
   }
   petWin?.webContents.send('pet:settings', payload)
   if (win && !win.isDestroyed()) {
@@ -340,9 +344,13 @@ function registerIpc() {
       if (payload?.settings) {
         broadcastPetSettings(payload.settings as Record<string, unknown>)
         const petSize = Number((payload.settings as Record<string, unknown>).petSize)
+        const petShape =
+          (payload.settings as Record<string, unknown>).petShape === 'circle' ? 'circle' : 'cutout'
         if (petWin && !petWin.isDestroyed() && petSize >= 100) {
           const b = petWin.getBounds()
-          petWin.setBounds({ x: b.x, y: b.y, width: Math.round(petSize), height: Math.round(petSize) + 20 })
+          const w = petShape === 'circle' ? Math.round(petSize) : Math.round(petSize * 0.85)
+          const h = petShape === 'circle' ? Math.round(petSize) + 20 : Math.round(petSize * 1.35)
+          petWin.setBounds({ x: b.x, y: b.y, width: w, height: h })
         }
       }
       const petOn = (payload?.settings as Record<string, unknown> | undefined)?.petEnabled !== false

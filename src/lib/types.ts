@@ -29,6 +29,7 @@ export type Settings = {
   petSize: number
   petAnimation: boolean
   petShowBadge: boolean
+  petShape: 'cutout' | 'circle'
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -47,6 +48,7 @@ export const DEFAULT_SETTINGS: Settings = {
   petSize: 160,
   petAnimation: true,
   petShowBadge: true,
+  petShape: 'cutout',
 }
 
 export type Theme = {

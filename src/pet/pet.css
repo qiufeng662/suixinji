@@ -21,17 +21,19 @@ body,
   display: grid;
   place-items: center;
   position: relative;
+  padding: 8px;
 }
 
 .pet-body {
   -webkit-app-region: drag;
-  width: min(92%, 200px);
-  aspect-ratio: 1;
   position: relative;
   cursor: grab;
   animation: floaty 3.2s ease-in-out infinite;
-  filter: drop-shadow(0 10px 16px rgba(28, 25, 23, 0.22));
-  transition: transform 0.15s ease;
+  max-width: 100%;
+  max-height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
 }
 
 .pet-body:active {
@@ -42,13 +44,45 @@ body,
   animation: pop 0.45s ease;
 }
 
-.pet-face {
+/* —— 抠图人像：原形显示，不裁圆 —— */
+.pet-body.shape-cutout .pet-face {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+}
+
+.pet-body.shape-cutout .pet-face img {
+  display: block;
+  max-width: 100%;
+  max-height: min(100%, 200px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  pointer-events: none;
+  filter: drop-shadow(0 10px 14px rgba(28, 25, 23, 0.28));
+  border-radius: 0;
+}
+
+/* —— 圆形头像模式 —— */
+.pet-body.shape-circle {
+  aspect-ratio: 1;
+  width: min(92%, 180px);
+  filter: drop-shadow(0 10px 16px rgba(28, 25, 23, 0.22));
+}
+
+.pet-body.shape-circle .pet-face {
   width: 100%;
   height: 100%;
   border-radius: 50%;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 35% 30%, #fff8ea 0%, #f0e6d4 45%, #d9cbb3 100%);
+  background: radial-gradient(circle at 35% 30%, #fff8ea 0%, #f0e6d4 45%, #d9cbb3 100%);
   border: 3px solid rgba(255, 255, 255, 0.72);
   box-shadow:
     inset 0 -8px 16px rgba(28, 25, 23, 0.08),
@@ -58,22 +92,31 @@ body,
   position: relative;
 }
 
-.pet-face img {
+.pet-body.shape-circle .pet-face img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
   pointer-events: none;
+  filter: none;
+}
+
+/* 默认小怪物（未设照片时） */
+.pet-body.shape-default {
+  aspect-ratio: 1;
+  width: min(88%, 160px);
+  filter: drop-shadow(0 10px 16px rgba(28, 25, 23, 0.22));
 }
 
 .pet-default {
   width: 100%;
   height: 100%;
+  border-radius: 50%;
   display: grid;
   place-items: center;
   position: relative;
-  background:
-    radial-gradient(circle at 30% 25%, #7baf96 0%, #3d5a4c 55%, #2a3f35 100%);
+  background: radial-gradient(circle at 30% 25%, #7baf96 0%, #3d5a4c 55%, #2a3f35 100%);
+  border: 3px solid rgba(255, 255, 255, 0.72);
 }
 
 .pet-default .eye {
@@ -113,27 +156,28 @@ body,
 
 .pet-badge {
   position: absolute;
-  right: 6%;
-  bottom: 8%;
-  min-width: 28px;
-  height: 28px;
-  padding: 0 8px;
+  right: 4%;
+  bottom: 10%;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 7px;
   border-radius: 999px;
   background: #3d5a4c;
   color: #fff;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   display: grid;
   place-items: center;
   box-shadow: 0 4px 10px rgba(28, 25, 23, 0.25);
   border: 2px solid rgba(255, 255, 255, 0.7);
   pointer-events: none;
+  z-index: 3;
 }
 
 .pet-bubble {
   position: absolute;
   left: 50%;
-  bottom: 108%;
+  bottom: calc(100% + 8px);
   transform: translateX(-50%) translateY(6px);
   max-width: 180px;
   padding: 8px 12px;
@@ -148,6 +192,7 @@ body,
   white-space: nowrap;
   transition: opacity 0.2s ease, transform 0.2s ease;
   -webkit-app-region: no-drag;
+  z-index: 4;
 }
 
 .pet-bubble.show {
@@ -157,8 +202,8 @@ body,
 
 .pet-actions {
   position: absolute;
-  right: 4px;
-  top: 4px;
+  right: 2px;
+  top: 2px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -190,13 +235,13 @@ body,
 
 @keyframes floaty {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
+  50% { transform: translateY(-5px); }
 }
 
 @keyframes pop {
   0% { transform: scale(1); }
-  35% { transform: scale(0.92, 1.06); }
-  70% { transform: scale(1.05, 0.96); }
+  35% { transform: scale(0.94, 1.05); }
+  70% { transform: scale(1.04, 0.97); }
   100% { transform: scale(1); }
 }
 

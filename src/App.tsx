@@ -130,7 +130,13 @@ export default function App() {
     if (!window.suixinji?.pickPetImage) return
     const rel = await window.suixinji.pickPetImage()
     if (!rel) return
-    setSettings((prev) => ({ ...prev, petImage: rel, petEnabled: true }))
+    const isCutout = /\.(png|webp)$/i.test(rel)
+    setSettings((prev) => ({
+      ...prev,
+      petImage: rel,
+      petEnabled: true,
+      petShape: isCutout ? 'cutout' : 'circle',
+    }))
   }, [])
 
   const onPointerMove = (e: React.PointerEvent) => {
