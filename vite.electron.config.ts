@@ -14,7 +14,15 @@ export default defineConfig({
       fileName: (_format, entryName) => `${entryName}.cjs`,
     },
     rollupOptions: {
-      external: ['electron', 'node:path', 'node:fs', 'node:os', 'node:url'],
+      external: [
+        'electron',
+        'node:path',
+        'node:fs',
+        'node:os',
+        'node:url',
+        'node:child_process',
+        'child_process',
+      ],
       output: {
         entryFileNames: '[name].cjs',
       },
