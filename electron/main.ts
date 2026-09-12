@@ -197,6 +197,7 @@ function createWindow() {
     backgroundColor: '#00000000',
     hasShadow: false,
     title: ' ',
+    titleBarStyle: 'hidden',
     autoHideMenuBar: true,
     icon: resolveAppIcon(),
     webPreferences: {
@@ -266,6 +267,7 @@ function createPetWindow() {
     hasShadow: false,
     thickFrame: false,
     title: ' ',
+    titleBarStyle: 'hidden',
     autoHideMenuBar: true,
     fullscreenable: false,
     maximizable: false,

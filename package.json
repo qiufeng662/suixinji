@@ -1,6 +1,6 @@
 {
   "name": "suixinji",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "随心记 — 桌面悬浮任务与随想卡片，3D 纸卡质感，可深度 DIY",
   "main": "dist-electron/main.cjs",
   "author": "suixinji",
