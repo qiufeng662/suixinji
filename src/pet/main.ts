@@ -9,6 +9,9 @@ type PetSettings = {
   petAnimation: boolean
   petShowBadge: boolean
   petShape: PetShape
+  petAlwaysOnTop?: boolean
+  petLockPosition?: boolean
+  petClickThrough?: boolean
 }
 
 const root = document.getElementById('pet-root')!
