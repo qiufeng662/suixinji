@@ -70,6 +70,10 @@
       {
         "from": "build/icon.png",
         "to": "icon.png"
+      },
+      {
+        "from": "scripts/strip-caption.ps1",
+        "to": "strip-caption.ps1"
       }
     ],
     "win": {

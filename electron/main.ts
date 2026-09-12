@@ -195,20 +195,16 @@ function stripChromeArtifacts(w: BrowserWindow | null) {
 function disableWin11Caption(w: BrowserWindow) {
   const buf = w.getNativeWindowHandle()
   const hwnd = Number(buf.readBigUInt64LE(0))
-  // 单行脚本，避免 here-string / 多行 -Command 解析问题
-  const script = [
-    'Add-Type -Namespace W -Name N -MemberDefinition \'[DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(IntPtr h,int a,ref int v,int s); [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr h,int i); [DllImport("user32.dll")] public static extern int SetWindowLong(IntPtr h,int i,int v); [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h,int a,int x,int y,int cx,int cy,uint f);\'',
-    `$h=[IntPtr]${hwnd}`,
-    '$c=1; [W.N]::DwmSetWindowAttribute($h,33,[ref]$c,4) | Out-Null',
-    '$s=[W.N]::GetWindowLong($h,-16)',
-    '$s = $s -band (-bnot 0x00C00000) -band (-bnot 0x00080000)',
-    '[W.N]::SetWindowLong($h,-16,$s) | Out-Null',
-    // SWP_NOSIZE|NOMOVE|NOZORDER|NOACTIVATE|FRAMECHANGED = 0x37
-    '[W.N]::SetWindowPos($h,0,0,0,0,0,0x37) | Out-Null',
-  ].join('; ')
+  const ps1 = path.join(
+    isDev ? path.join(app.getAppPath(), 'scripts') : process.resourcesPath,
+    'strip-caption.ps1',
+  )
+  const fallback = path.join(app.getAppPath(), 'scripts', 'strip-caption.ps1')
+  const file = fs.existsSync(ps1) ? ps1 : fallback
+  if (!fs.existsSync(file)) return
   execFile(
     'powershell.exe',
-    ['-NoProfile', '-NonInteractive', '-Command', script],
+    ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', file, '-Hwnd', String(hwnd)],
     () => {
       /* ignore */
     },
