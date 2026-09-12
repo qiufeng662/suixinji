@@ -29,7 +29,10 @@ const IDLE_LINES = [
   '休息一下眼睛？',
   '今天想记点什么？',
   '我就在这儿。',
+  '窗外怎么样？',
 ]
+
+const PET_LINES = ['嗯…好舒服。', '再摸一下？', '嘿嘿。', '别停～']
 
 function api() {
   return window.suixinji
@@ -37,18 +40,19 @@ function api() {
 
 function greeting(): string {
   const h = new Date().getHours()
-  if (h < 6) return '这么晚还不睡？'
+  if (h < 6) return '这么晚，注意休息。'
   if (h < 11) return '早上好，新的一天。'
   if (h < 14) return '中午好，吃了吗？'
-  if (h < 18) return '下午好，加油。'
-  return '晚上好，辛苦了。'
+  if (h < 18) return '下午好，稳住节奏。'
+  if (h < 22) return '晚上好，辛苦了。'
+  return '夜深了，早点睡。'
 }
 
 function buildDom() {
   root.innerHTML = `
     <div class="pet-stage" id="pet-stage">
       <div class="pet-anchor">
-        <div class="pet-body shape-default" id="pet-body" title="拖动移动 · 点击互动 · 右键菜单">
+        <div class="pet-body shape-default" id="pet-body" title="">
           <div class="pet-bubble" id="pet-bubble"></div>
           <div class="pet-hearts" id="pet-hearts"></div>
           <div class="pet-face" id="pet-face"></div>
@@ -73,8 +77,8 @@ function renderDefault() {
   face.innerHTML = `
     <div class="pet-default" aria-hidden="true">
       <div class="shine"></div>
-      <div class="eye left"></div>
-      <div class="eye right"></div>
+      <div class="eye left" id="eye-l"></div>
+      <div class="eye right" id="eye-r"></div>
       <div class="blush left"></div>
       <div class="blush right"></div>
       <div class="smile"></div>
@@ -151,7 +155,7 @@ async function renderFace(image: string | null, shape: PetShape) {
   }
   if (shape === 'cutout') url = await stripWhiteBackground(url)
   setShape(shape)
-  face.innerHTML = `<img src="${url}" alt="挂件" draggable="false" id="pet-img" />`
+  face.innerHTML = `<img src="${url}" alt="" draggable="false" id="pet-img" />`
   const img = document.getElementById('pet-img') as HTMLImageElement | null
   img?.addEventListener('error', () => {
     setShape('default')
@@ -172,23 +176,32 @@ function showBubble(text: string, ms = 2400) {
   bubbleTimer = window.setTimeout(() => bubble.classList.remove('show'), ms)
 }
 
-function burstHearts() {
+function burstHearts(count = 4) {
   const box = document.getElementById('pet-hearts')
   if (!box) return
-  const glyphs = ['♥', '♥', '✦', '♥']
-  glyphs.forEach((g, i) => {
+  const glyphs = ['♥', '♥', '✦', '♥', '♪']
+  for (let i = 0; i < count; i++) {
     const s = document.createElement('span')
-    s.textContent = g
-    s.style.setProperty('--dx', `${(Math.random() * 36 - 18).toFixed(0)}px`)
-    s.style.left = `${42 + Math.random() * 20}%`
-    s.style.animationDelay = `${i * 60}ms`
+    s.textContent = glyphs[i % glyphs.length]!
+    s.style.setProperty('--dx', `${(Math.random() * 40 - 20).toFixed(0)}px`)
+    s.style.setProperty('--rot', `${(Math.random() * 24 - 12).toFixed(0)}deg`)
+    s.style.left = `${40 + Math.random() * 24}%`
+    s.style.animationDelay = `${i * 55}ms`
     s.style.color = i % 2 === 0 ? '#c4785a' : '#3d5a4c'
+    s.style.fontSize = `${13 + Math.random() * 5}px`
     box.appendChild(s)
-    window.setTimeout(() => s.remove(), 1000)
-  })
+    window.setTimeout(() => s.remove(), 1100)
+  }
 }
 
-async function refreshBadge() {
+function popBody() {
+  const body = document.getElementById('pet-body')!
+  body.classList.remove('is-pop')
+  void body.offsetWidth
+  body.classList.add('is-pop')
+}
+
+async function refreshBadge(bump = false) {
   const a = api()
   if (!a) return
   try {
@@ -220,6 +233,12 @@ async function refreshBadge() {
     }).length
     badge.hidden = done <= 0
     badge.textContent = String(done)
+    if (bump && done > 0) {
+      badge.classList.remove('bump')
+      void badge.offsetWidth
+      badge.classList.add('bump')
+      window.setTimeout(() => badge.classList.remove('bump'), 280)
+    }
   } catch {
     /* ignore */
   }
@@ -233,6 +252,7 @@ async function pickPhoto() {
   const isCutout = /\.(png|webp)$/i.test(path)
   const shape: PetShape = isCutout ? 'cutout' : 'circle'
   await renderFace(path, shape)
+  popBody()
   showBubble(isCutout ? '挂好了，拖我试试' : '换上啦')
   try {
     const store = await a.load()
@@ -258,6 +278,7 @@ async function toggleShape() {
   const img = (store?.settings as { petImage?: string | null } | undefined)?.petImage || null
   if (img) {
     await renderFace(img, next)
+    popBody()
     showBubble(next === 'cutout' ? '抠图原形' : '圆形头像')
   } else {
     showBubble('先选一张照片')
@@ -280,16 +301,10 @@ async function savePetPatch(patch: Partial<PetSettings>) {
   const a = api()
   if (!a) return
   const store = await a.load()
-  lastSettings = {
-    ...(store.settings as PetSettings),
-    ...patch,
-  } as PetSettings
+  lastSettings = { ...(store.settings as PetSettings), ...patch } as PetSettings
   await a.save({
     entries: store.entries,
-    settings: {
-      ...(store.settings as object),
-      ...patch,
-    },
+    settings: { ...(store.settings as object), ...patch },
   })
 }
 
@@ -307,12 +322,10 @@ function showMenu(x: number, y: number) {
     <button type="button" data-act="hide" class="danger">隐藏挂件</button>
   `
   menu.classList.add('open')
-  const mw = 168
-  const mh = 230
-  const left = Math.min(x, window.innerWidth - mw - 4)
-  const top = Math.min(y, window.innerHeight - mh - 4)
-  menu.style.left = `${Math.max(4, left)}px`
-  menu.style.top = `${Math.max(4, top)}px`
+  const mw = 176
+  const mh = 250
+  menu.style.left = `${Math.max(4, Math.min(x, window.innerWidth - mw - 4))}px`
+  menu.style.top = `${Math.max(4, Math.min(y, window.innerHeight - mh - 4))}px`
 
   menu.onclick = (e) => {
     const btn = (e.target as HTMLElement).closest('button')
@@ -336,6 +349,28 @@ function showMenu(x: number, y: number) {
   }
 }
 
+function wireEyeFollow() {
+  const stage = document.getElementById('pet-stage')!
+  stage.addEventListener('pointermove', (e) => {
+    const eyeL = document.getElementById('eye-l')
+    const eyeR = document.getElementById('eye-r')
+    if (!eyeL || !eyeR) return
+    const body = document.getElementById('pet-body')!
+    const rect = body.getBoundingClientRect()
+    if (rect.width < 4) return
+    const cx = rect.left + rect.width / 2
+    const cy = rect.top + rect.height * 0.42
+    const dx = Math.max(-1, Math.min(1, (e.clientX - cx) / (rect.width * 1.2)))
+    const dy = Math.max(-1, Math.min(1, (e.clientY - cy) / (rect.height * 1.2)))
+    const ex = `${(dx * 2.2).toFixed(2)}px`
+    const ey = `${(dy * 1.6).toFixed(2)}px`
+    eyeL.style.setProperty('--ex', ex)
+    eyeL.style.setProperty('--ey', ey)
+    eyeR.style.setProperty('--ex', ex)
+    eyeR.style.setProperty('--ey', ey)
+  })
+}
+
 function wire() {
   const body = document.getElementById('pet-body')!
   const stage = document.getElementById('pet-stage')!
@@ -347,6 +382,8 @@ function wire() {
   let startY = 0
   let lastX = 0
   let clickAt = 0
+  let petTimer = 0
+  let petting = false
 
   const onDown = (e: PointerEvent) => {
     if (e.button === 2) return
@@ -359,27 +396,46 @@ function wire() {
     body.classList.add('is-dragging')
     body.setPointerCapture(e.pointerId)
     a?.petDragStart?.()
+
+    // 长按抚摸
+    window.clearTimeout(petTimer)
+    petTimer = window.setTimeout(() => {
+      if (!dragging || moved) return
+      petting = true
+      body.classList.add('is-petting')
+      burstHearts(3)
+      showBubble(PET_LINES[Math.floor(Math.random() * PET_LINES.length)]!, 1400)
+    }, 380)
   }
 
   const onMove = (e: PointerEvent) => {
     if (!dragging) return
     const dx = e.screenX - startX
     const dy = e.screenY - startY
-    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+      moved = true
+      window.clearTimeout(petTimer)
+      if (petting) {
+        petting = false
+        body.classList.remove('is-petting')
+      }
+    }
     if (moved) {
       a?.petDragMove?.(e.screenX, e.screenY)
-      // 轻微随速度倾斜
       const vx = e.screenX - lastX
       lastX = e.screenX
-      const tilt = Math.max(-8, Math.min(8, vx * 0.35))
-      body.style.transform = `scale(1.04) translateY(-4px) rotate(${tilt}deg)`
+      const tilt = Math.max(-10, Math.min(10, vx * 0.4))
+      body.style.transform = `scale(1.05) translateY(-6px) rotate(${tilt}deg)`
     }
   }
 
   const onUp = (e: PointerEvent) => {
     if (!dragging) return
     dragging = false
-    body.classList.remove('is-dragging')
+    window.clearTimeout(petTimer)
+    const wasPetting = petting
+    petting = false
+    body.classList.remove('is-dragging', 'is-petting')
     body.style.transform = ''
     try {
       body.releasePointerCapture(e.pointerId)
@@ -388,22 +444,27 @@ function wire() {
     }
     a?.petDragEnd?.()
 
+    if (wasPetting) {
+      popBody()
+      return
+    }
+
     const now = Date.now()
     if (!moved) {
       if (now - clickAt < 320) {
-        // 双击打开主卡片
         clickAt = 0
         void a?.focusMainCard?.()
         showBubble('打开卡片')
         return
       }
       clickAt = now
-      body.classList.remove('is-pop')
-      void body.offsetWidth
-      body.classList.add('is-pop')
-      burstHearts()
+      popBody()
+      burstHearts(5)
       showBubble(CLICK_LINES[Math.floor(Math.random() * CLICK_LINES.length)]!)
       void refreshBadge()
+    } else {
+      // 松手回弹
+      popBody()
     }
   }
 
@@ -421,12 +482,13 @@ function wire() {
     if (!(e.target as HTMLElement).closest('.pet-menu')) hideMenu()
   })
 
-  // 偶发闲聊
+  wireEyeFollow()
+
   window.setInterval(() => {
     if (document.hidden || dragging) return
-    if (Math.random() > 0.35) return
+    if (Math.random() > 0.32) return
     showBubble(IDLE_LINES[Math.floor(Math.random() * IDLE_LINES.length)]!, 2000)
-  }, 48000)
+  }, 42000)
 }
 
 async function init() {
@@ -445,7 +507,7 @@ async function init() {
     else renderDefault()
     applyIdle(Boolean(s.petAnimation))
     await refreshBadge()
-    window.setTimeout(() => showBubble(greeting(), 2800), 400)
+    window.setTimeout(() => showBubble(greeting(), 3000), 450)
   } catch {
     /* keep default */
   }
@@ -459,15 +521,10 @@ async function init() {
   })
 
   a.onPetCelebrate?.(() => {
-    const body = document.getElementById('pet-body')
-    if (body) {
-      body.classList.remove('is-pop')
-      void body.offsetWidth
-      body.classList.add('is-pop')
-    }
-    burstHearts()
+    popBody()
+    burstHearts(6)
     showBubble('记下啦！', 1600)
-    void refreshBadge()
+    void refreshBadge(true)
   })
 }
 

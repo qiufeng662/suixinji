@@ -7,6 +7,11 @@ import { pathToFileURL } from 'node:url'
 // CJS bundle: __dirname is provided by Node
 declare const __dirname: string
 
+// Windows: Chromium 原生遮挡检测会把置顶小窗当成「被挡住」而降级
+// 成熟桌面挂件（Rainmeter/Electron widget 类）都会关掉这个特性
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
+app.commandLine.appendSwitch('enable-transparent-visuals')
+
 const isDev = !app.isPackaged
 let win: BrowserWindow | null = null
 let petWin: BrowserWindow | null = null
@@ -128,14 +133,18 @@ function resolveAppIcon(): string | undefined {
 function forceTop(w: BrowserWindow | null, flag = true) {
   if (!w || w.isDestroyed()) return
   try {
-    w.setAlwaysOnTop(flag, 'screen-saver')
-    if (flag) w.setVisibleOnAllWorkspaces?.(true, { visibleOnFullScreen: true })
+    // pop-up-menu / screen-saver 均为 TOPMOST 级；交替使用提高存活率
+    w.setAlwaysOnTop(flag, flag ? 'screen-saver' : 'normal')
+    if (flag) {
+      w.setVisibleOnAllWorkspaces?.(true, { visibleOnFullScreen: true })
+      w.moveTop()
+    }
   } catch {
     /* ignore */
   }
 }
 
-/** Windows 上置顶有时会被全屏/UAC 抢走，定期加固 */
+/** Windows 上置顶有时会被全屏/UAC/Chromium 遮挡检测抢走，高频加固 */
 let topTimer: NodeJS.Timeout | null = null
 function startTopKeeper() {
   if (topTimer) return
@@ -144,7 +153,7 @@ function startTopKeeper() {
     const cardTop = ensureStore().settings.alwaysOnTop !== false
     if (petWin && !petWin.isDestroyed() && petWin.isVisible() && petTop) forceTop(petWin)
     if (win && !win.isDestroyed() && win.isVisible() && cardTop) forceTop(win)
-  }, 1500)
+  }, 600)
 }
 
 function stopTopKeeper() {
@@ -234,7 +243,9 @@ function createPetWindow() {
     show: false,
     backgroundColor: '#00000000',
     hasShadow: false,
-    // 空标题：避免任务栏/Alt-Tab 显示「随心记挂件」
+    // 去掉 Windows 可缩放厚边框/描边痕迹
+    thickFrame: false,
+    type: 'panel',
     title: ' ',
     autoHideMenuBar: true,
     fullscreenable: false,
