@@ -152,9 +152,15 @@ function startTopKeeper() {
   topTimer = setInterval(() => {
     const petTop = ensureStore().settings.petAlwaysOnTop !== false
     const cardTop = ensureStore().settings.alwaysOnTop !== false
-    if (petWin && !petWin.isDestroyed() && petWin.isVisible() && petTop) forceTop(petWin)
-    if (win && !win.isDestroyed() && win.isVisible() && cardTop) forceTop(win)
-  }, 600)
+    if (petWin && !petWin.isDestroyed() && petWin.isVisible()) {
+      if (petTop) forceTop(petWin)
+      stripCaption(petWin)
+    }
+    if (win && !win.isDestroyed() && win.isVisible()) {
+      if (cardTop) forceTop(win)
+      stripCaption(win)
+    }
+  }, 800)
 }
 
 function stopTopKeeper() {
@@ -183,32 +189,43 @@ function stripChromeArtifacts(w: BrowserWindow | null) {
     } catch {
       /* ignore */
     }
-    try {
-      disableWin11Caption(w)
-    } catch {
-      /* ignore */
-    }
+    stripCaption(w)
   }
 }
 
-/** Win11 会在透明无边框窗顶部画通栏灰条（标题/圆角非客户区） */
-function disableWin11Caption(w: BrowserWindow) {
-  const buf = w.getNativeWindowHandle()
-  const hwnd = Number(buf.readBigUInt64LE(0))
-  const ps1 = path.join(
-    isDev ? path.join(app.getAppPath(), 'scripts') : process.resourcesPath,
-    'strip-caption.ps1',
-  )
-  const fallback = path.join(app.getAppPath(), 'scripts', 'strip-caption.ps1')
-  const file = fs.existsSync(ps1) ? ps1 : fallback
-  if (!fs.existsSync(file)) return
-  execFile(
-    'powershell.exe',
-    ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', file, '-Hwnd', String(hwnd)],
-    () => {
-      /* ignore */
-    },
-  )
+function resolveStripScript(): string | null {
+  const candidates = [
+    path.join(process.resourcesPath, 'strip-caption.ps1'),
+    path.join(app.getAppPath(), 'scripts', 'strip-caption.ps1'),
+    path.join(path.dirname(app.getPath('exe')), 'resources', 'strip-caption.ps1'),
+    path.join(path.dirname(app.getPath('exe')), 'strip-caption.ps1'),
+  ]
+  return candidates.find((p) => {
+    try {
+      return fs.existsSync(p)
+    } catch {
+      return false
+    }
+  }) ?? null
+}
+
+/** Win10/11 透明无边框窗顶部通栏灰条 = 残留 caption，强制改 WS_POPUP */
+function stripCaption(w: BrowserWindow) {
+  try {
+    const buf = w.getNativeWindowHandle()
+    const hwnd = Number(buf.readBigUInt64LE(0))
+    const file = resolveStripScript()
+    if (!file) return
+    execFile(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', file, '-Hwnd', String(hwnd)],
+      () => {
+        /* ignore */
+      },
+    )
+  } catch {
+    /* ignore */
+  }
 }
 
 function createWindow() {
@@ -228,8 +245,6 @@ function createWindow() {
     hasShadow: false,
     title: ' ',
     autoHideMenuBar: true,
-    // 关掉 Win11 标题 overlay，避免顶部通栏灰条
-    titleBarOverlay: false as never,
     icon: resolveAppIcon(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -305,7 +320,6 @@ function createPetWindow() {
     thickFrame: false,
     title: ' ',
     autoHideMenuBar: true,
-    titleBarOverlay: false as never,
     fullscreenable: false,
     maximizable: false,
     minimizable: false,
