@@ -191,34 +191,21 @@ function stripChromeArtifacts(w: BrowserWindow | null) {
   }
 }
 
-/** Win11 会在透明无边框窗顶部画通栏亮条（标题/圆角非客户区） */
+/** Win11 会在透明无边框窗顶部画通栏灰条（标题/圆角非客户区） */
 function disableWin11Caption(w: BrowserWindow) {
   const buf = w.getNativeWindowHandle()
-  const hwnd = buf.readBigUInt64LE(0)
-  const script = `
-Add-Type @'
-using System;
-using System.Runtime.InteropServices;
-public static class NativeWin {
-  [DllImport("dwmapi.dll")]
-  public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int val, int size);
-  [DllImport("user32.dll")]
-  public static extern int GetWindowLong(IntPtr hwnd, int index);
-  [DllImport("user32.dll")]
-  public static extern int SetWindowLong(IntPtr hwnd, int index, int newLong);
-}
-'@
-$h = [IntPtr]${hwnd}
-# DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_DONOTROUND = 1
-$corner = 1
-[NativeWin]::DwmSetWindowAttribute($h, 33, [ref]$corner, 4) | Out-Null
-# 去掉 WS_CAPTION(0x00C00000)，保留可调整时的 WS_THICKFRAME(0x00040000)
-$GWL_STYLE = -16
-$WS_CAPTION = 0x00C00000
-$style = [NativeWin]::GetWindowLong($h, $GWL_STYLE)
-$style = $style -band (-bnot $WS_CAPTION)
-[NativeWin]::SetWindowLong($h, $GWL_STYLE, $style) | Out-Null
-`
+  const hwnd = Number(buf.readBigUInt64LE(0))
+  // 单行脚本，避免 here-string / 多行 -Command 解析问题
+  const script = [
+    'Add-Type -Namespace W -Name N -MemberDefinition \'[DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(IntPtr h,int a,ref int v,int s); [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr h,int i); [DllImport("user32.dll")] public static extern int SetWindowLong(IntPtr h,int i,int v); [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h,int a,int x,int y,int cx,int cy,uint f);\'',
+    `$h=[IntPtr]${hwnd}`,
+    '$c=1; [W.N]::DwmSetWindowAttribute($h,33,[ref]$c,4) | Out-Null',
+    '$s=[W.N]::GetWindowLong($h,-16)',
+    '$s = $s -band (-bnot 0x00C00000) -band (-bnot 0x00080000)',
+    '[W.N]::SetWindowLong($h,-16,$s) | Out-Null',
+    // SWP_NOSIZE|NOMOVE|NOZORDER|NOACTIVATE|FRAMECHANGED = 0x37
+    '[W.N]::SetWindowPos($h,0,0,0,0,0,0x37) | Out-Null',
+  ].join('; ')
   execFile(
     'powershell.exe',
     ['-NoProfile', '-NonInteractive', '-Command', script],
@@ -245,6 +232,8 @@ function createWindow() {
     hasShadow: false,
     title: ' ',
     autoHideMenuBar: true,
+    // 关掉 Win11 标题 overlay，避免顶部通栏灰条
+    titleBarOverlay: false as never,
     icon: resolveAppIcon(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -320,6 +309,7 @@ function createPetWindow() {
     thickFrame: false,
     title: ' ',
     autoHideMenuBar: true,
+    titleBarOverlay: false as never,
     fullscreenable: false,
     maximizable: false,
     minimizable: false,
